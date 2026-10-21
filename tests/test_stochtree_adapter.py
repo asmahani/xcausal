@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from metacausal.adapters.stochtree import StochtreeAdapter
+from xcausal.adapters.stochtree import StochtreeAdapter
 
 
 def _make_mock_bcf(n_obs: int, num_mcmc: int):
@@ -474,4 +474,4 @@ class TestStochtreePickle:
 
 
 def test_importable_from_top_level():
-    from metacausal import StochtreeAdapter  # noqa: F401
+    from xcausal import StochtreeAdapter  # noqa: F401

@@ -1,4 +1,4 @@
-"""Pytest configuration for metacausal.
+"""Pytest configuration for xcausal.
 
 The only thing this file does today is pin BLAS / OpenMP threadpools
 to one thread *before* any test module imports numpy / sklearn / etc.

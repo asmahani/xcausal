@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CausalStacking, CrossFitSplit, QAggregation
-from metacausal.aggregation.nuisance import NuisanceEstimates
-from metacausal.aggregation.q_aggregation import _solve_dr_simplex
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CausalStacking, CrossFitSplit, QAggregation
+from xcausal.aggregation.nuisance import NuisanceEstimates
+from xcausal.aggregation.q_aggregation import _solve_dr_simplex
 
 from tests.test_supervised_fit import CateCapableAdapter, _dgp
 
@@ -230,7 +230,7 @@ class TestFitWeightsInterface:
         nuisance = _oracle_nuisance(n)
         strategy = QAggregation(nu=0.5, beta=0.0)
         w = strategy.fit_weights(cate_preds, np.zeros(n), np.ones(n) * 0.5, rng.normal(size=(n, 2)), nuisance)
-        from metacausal.aggregation.weights import EnsembleWeights as EW
+        from xcausal.aggregation.weights import EnsembleWeights as EW
         assert isinstance(w, EW)
         assert w.method == "q_aggregation"
         assert w.details["nu"] == pytest.approx(0.5)
@@ -354,11 +354,11 @@ class TestEndToEnd:
         assert n_nonzero <= 2
 
     def test_importable_from_aggregation(self):
-        from metacausal.aggregation import CausalStacking, QAggregation  # noqa: F401
+        from xcausal.aggregation import CausalStacking, QAggregation  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
 # Import EnsembleWeights for use in tests above
 # ---------------------------------------------------------------------------
 
-from metacausal.aggregation.weights import EnsembleWeights  # noqa: E402
+from xcausal.aggregation.weights import EnsembleWeights  # noqa: E402

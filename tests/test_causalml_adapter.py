@@ -9,9 +9,9 @@ import pytest
 from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import CausalEnsemble, CausalMLAdapter
-from metacausal.adapters.causalml import _is_causalml, _is_tmle, _is_uplift
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CausalEnsemble, CausalMLAdapter
+from xcausal.adapters.causalml import _is_causalml, _is_tmle, _is_uplift
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 # CausalML imports
 from causalml.inference.meta import (
@@ -588,7 +588,7 @@ class TestPropensityThreading:
 
 
 class TestForceSerialUnderParallelism:
-    """Inside a MetaCausal worker (``INNER_WORKER_ENV`` set), the adapter
+    """Inside a XCausal worker (``INNER_WORKER_ENV`` set), the adapter
     pins the wrapped R-Learner's ``cv_n_jobs`` to 1 so its internal
     ``cross_val_predict`` pool cannot nest inside the outer worker. Outside
     a worker, ``cv_n_jobs`` is left untouched. Mirrors
@@ -602,7 +602,7 @@ class TestForceSerialUnderParallelism:
         assert model.cv_n_jobs == 1
 
     def test_fit_pins_cv_n_jobs_inside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.setenv(INNER_WORKER_ENV, "1")
         X, T, Y_cont, _ = _dgp(n=100, seed=8)
@@ -614,7 +614,7 @@ class TestForceSerialUnderParallelism:
         assert adapter._model.cv_n_jobs == -1
 
     def test_fit_leaves_cv_n_jobs_outside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.delenv(INNER_WORKER_ENV, raising=False)
         X, T, Y_cont, _ = _dgp(n=100, seed=9)
@@ -630,8 +630,8 @@ class TestForceSerialUnderParallelism:
 
 
 def test_importable_from_top_level():
-    from metacausal import CausalMLAdapter  # noqa: F401
+    from xcausal import CausalMLAdapter  # noqa: F401
 
 
 def test_importable_from_adapters():
-    from metacausal.adapters import CausalMLAdapter  # noqa: F401
+    from xcausal.adapters import CausalMLAdapter  # noqa: F401

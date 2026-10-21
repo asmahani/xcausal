@@ -12,13 +12,13 @@ import warnings
 import numpy as np
 import pytest
 
-from metacausal import (
+from xcausal import (
     BootstrapResult,
     BootstrapWarning,
     CausalEnsemble,
     ComponentAteEstimate,
 )
-from metacausal.ensemble import _resolve_subsample_size, _stratified_subsample
+from xcausal.ensemble import _resolve_subsample_size, _stratified_subsample
 
 
 # ---------------------------------------------------------------------------

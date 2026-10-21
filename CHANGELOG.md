@@ -1,10 +1,14 @@
 # Changelog
 
-All notable changes to MetaCausal are documented here. Dates are
+All notable changes to XCausal are documented here. Dates are
 release dates; "Unreleased" entries describe changes on `main` not yet
 tagged.
 
 ## Unreleased
+
+## 0.8.0 — 2026-10-21
+
+- **Renamed the project to XCausal.** The PyPI distribution and import package are now `xcausal`. `MetaCausalWarning` is now `XCausalWarning`, and the parallelism sentinel is `XCAUSAL_INNER_WORKER` (`xcausal.adapters.INNER_WORKER_ENV`). This is the first `xcausal` release; it continues the code previously published as `metacausal` 0.7.4. Entries below keep the wording from those releases.
 
 ## 0.7.4 — 2026-10-17
 

@@ -16,11 +16,11 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from metacausal.adapters.causalml import CausalMLAdapter
-from metacausal.adapters.doubleml import DoubleMLAdapter
-from metacausal.adapters.econml import EconMLAdapter
-from metacausal.adapters.generic import GenericATEAdapter, GenericCATEAdapter
-from metacausal.adapters.stochtree import StochtreeAdapter
+from xcausal.adapters.causalml import CausalMLAdapter
+from xcausal.adapters.doubleml import DoubleMLAdapter
+from xcausal.adapters.econml import EconMLAdapter
+from xcausal.adapters.generic import GenericATEAdapter, GenericCATEAdapter
+from xcausal.adapters.stochtree import StochtreeAdapter
 
 
 # ---------------------------------------------------------------------------

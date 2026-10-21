@@ -8,14 +8,14 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import (
+from xcausal import (
     CausalEnsemble,
     ComponentExclusionWarning,
     ComponentFailureWarning,
 )
-from metacausal.aggregation import CrossFitSplit, SupervisedStrategy, TrainAvgSplit
-from metacausal.aggregation.weights import EnsembleWeights
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal.aggregation import CrossFitSplit, SupervisedStrategy, TrainAvgSplit
+from xcausal.aggregation.weights import EnsembleWeights
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------
@@ -554,4 +554,4 @@ class TestReproducibility:
 
 
 def test_supervised_strategy_importable():
-    from metacausal.aggregation import SupervisedStrategy  # noqa: F401
+    from xcausal.aggregation import SupervisedStrategy  # noqa: F401

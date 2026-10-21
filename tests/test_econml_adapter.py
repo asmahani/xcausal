@@ -10,7 +10,7 @@ from econml.dr import DRLearner
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.exceptions import DataConversionWarning
 
-from metacausal.adapters.econml import EconMLAdapter
+from xcausal.adapters.econml import EconMLAdapter
 
 
 def _binary_dgp(n=300, seed=0):
@@ -342,7 +342,7 @@ class _JobsEstimator:
 
 
 class TestForceSerialUnderParallelism:
-    """Inside a MetaCausal worker (``INNER_WORKER_ENV`` set), the adapter pins
+    """Inside a XCausal worker (``INNER_WORKER_ENV`` set), the adapter pins
     the wrapped estimator's joblib ``n_jobs`` to 1 so a forest's inner pool
     cannot nest inside the outer worker (the segfault root cause). Outside a
     worker the estimator's own ``n_jobs`` is left untouched.
@@ -362,7 +362,7 @@ class TestForceSerialUnderParallelism:
         assert all(m.n_jobs == 1 for m in model.models)
 
     def test_fit_pins_n_jobs_inside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.setenv(INNER_WORKER_ENV, "1")
         adapter = EconMLAdapter(_JobsEstimator(n_jobs=-1))
@@ -376,7 +376,7 @@ class TestForceSerialUnderParallelism:
         assert adapter._model.n_jobs == -1
 
     def test_fit_leaves_n_jobs_outside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.delenv(INNER_WORKER_ENV, raising=False)
         adapter = EconMLAdapter(_JobsEstimator(n_jobs=-1))
@@ -387,4 +387,4 @@ class TestForceSerialUnderParallelism:
 
 
 def test_importable_from_top_level():
-    from metacausal import EconMLAdapter  # noqa: F401
+    from xcausal import EconMLAdapter  # noqa: F401

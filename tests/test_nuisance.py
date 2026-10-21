@@ -6,13 +6,13 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal.aggregation.nuisance import (
+from xcausal.aggregation.nuisance import (
     NuisanceEstimates,
     dr_pseudo_outcome,
     fit_nuisance,
     robinson_residuals,
 )
-from metacausal.aggregation.splitting import CrossFitSplit, TrainAvgSplit
+from xcausal.aggregation.splitting import CrossFitSplit, TrainAvgSplit
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +161,7 @@ class TestFitNuisanceCrossFit:
         # Use a minimal fold_spec with LinearRegression/LogisticRegression internally
         # to avoid needing LightGBM — we monkeypatch defaults for the test.
         from unittest.mock import patch
-        from metacausal import defaults
+        from xcausal import defaults
 
         with (
             patch.object(defaults, "default_propensity_model", return_value=LogisticRegression(max_iter=200)),
@@ -444,7 +444,7 @@ class TestReproducibility:
 
 
 def test_importable_from_aggregation_package():
-    from metacausal.aggregation import (  # noqa: F401
+    from xcausal.aggregation import (  # noqa: F401
         NuisanceEstimates,
         dr_pseudo_outcome,
         fit_nuisance,
@@ -453,4 +453,4 @@ def test_importable_from_aggregation_package():
 
 
 def test_default_factories_importable():
-    from metacausal.defaults import default_outcome_model, default_propensity_model  # noqa: F401
+    from xcausal.defaults import default_outcome_model, default_propensity_model  # noqa: F401

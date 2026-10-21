@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CrossFitSplit, QAggregation, Select
-from metacausal.aggregation.nuisance import NuisanceEstimates, robinson_residuals
-from metacausal.aggregation.weights import EnsembleWeights
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CrossFitSplit, QAggregation, Select
+from xcausal.aggregation.nuisance import NuisanceEstimates, robinson_residuals
+from xcausal.aggregation.weights import EnsembleWeights
 
 from tests.test_supervised_fit import CateCapableAdapter, _dgp
 
@@ -203,4 +203,4 @@ class TestEndToEnd:
         assert result.ensemble_weights.method == "select_r"
 
     def test_importable_from_aggregation(self):
-        from metacausal.aggregation import Select  # noqa: F401
+        from xcausal.aggregation import Select  # noqa: F401

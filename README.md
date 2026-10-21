@@ -1,15 +1,15 @@
-# MetaCausal
+# XCausal
 
 Cross-framework ensembling of causal machine-learning estimators for ATE and pointwise CATE, with full-pipeline bootstrap inference.
 
-[![PyPI version](https://img.shields.io/pypi/v/metacausal)](https://pypi.org/project/metacausal/)
-[![Python versions](https://img.shields.io/pypi/pyversions/metacausal)](https://pypi.org/project/metacausal/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/asmahani/metacausal/blob/main/LICENSE)
-[![Docs](https://img.shields.io/badge/docs-latest-blue)](https://asmahani.github.io/metacausal/)
+[![PyPI version](https://img.shields.io/pypi/v/xcausal)](https://pypi.org/project/xcausal/)
+[![Python versions](https://img.shields.io/pypi/pyversions/xcausal)](https://pypi.org/project/xcausal/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/asmahani/xcausal/blob/main/LICENSE)
+[![Docs](https://img.shields.io/badge/docs-latest-blue)](https://asmahani.github.io/xcausal/)
 
-## What is MetaCausal?
+## What is XCausal?
 
-MetaCausal orchestrates multiple causal-ML estimators from different libraries — [EconML](https://www.pywhy.org/EconML/), [DoubleML](https://docs.doubleml.org), [CausalML](https://causalml.readthedocs.io/), [stochtree](https://stochtree.ai), or arbitrary user-supplied callables — behind a single protocol, and aggregates their treatment-effect estimates into a single ensemble estimate. Eight aggregation strategies are provided, grouped into three tiers:
+XCausal orchestrates multiple causal-ML estimators from different libraries — [EconML](https://www.pywhy.org/EconML/), [DoubleML](https://docs.doubleml.org), [CausalML](https://causalml.readthedocs.io/), [stochtree](https://stochtree.ai), or arbitrary user-supplied callables — behind a single protocol, and aggregates their treatment-effect estimates into a single ensemble estimate. Eight aggregation strategies are provided, grouped into three tiers:
 
 - **Pointwise** — Median (default), Mean, Trimmed Mean.
 - **Agreement-based** — Consensus Based Averaging, which selects a high-agreement subset of components from pairwise Kendall's τ.
@@ -19,28 +19,28 @@ A full-pipeline bootstrap refits every component, nuisance model, and aggregatio
 
 ## Motivation
 
-No single causal-ML estimator dominates across data-generating processes ([Curth & van der Schaar, 2023](https://proceedings.mlr.press/v202/curth23b.html)), and model selection for heterogeneous treatment effects is empirically unreliable: because the true CATE is never observed, ordinary cross-validation does not apply, and [Mahajan et al. (2024)](https://arxiv.org/abs/2211.01939) benchmark 415 CATE estimators across 78 datasets to find that reliable selection requires careful nuisance-model tuning — and that ensembling can outperform selecting any single estimator outright. Individual methods can also fail catastrophically under specific violations of their own assumptions (overlap breakdown, nuisance misspecification, tree extrapolation). MetaCausal's default pointwise median aggregation gives a 50% breakdown point with no tuning — up to half the component estimators can produce arbitrarily bad estimates without corrupting the ensemble. When outcome data allow learning weights, MetaCausal also ships the three outcome-supervised stackers from the recent CATE-ensemble literature, plus Select as a feasible-selection baseline for comparison.
+No single causal-ML estimator dominates across data-generating processes ([Curth & van der Schaar, 2023](https://proceedings.mlr.press/v202/curth23b.html)), and model selection for heterogeneous treatment effects is empirically unreliable: because the true CATE is never observed, ordinary cross-validation does not apply, and [Mahajan et al. (2024)](https://arxiv.org/abs/2211.01939) benchmark 415 CATE estimators across 78 datasets to find that reliable selection requires careful nuisance-model tuning — and that ensembling can outperform selecting any single estimator outright. Individual methods can also fail catastrophically under specific violations of their own assumptions (overlap breakdown, nuisance misspecification, tree extrapolation). XCausal's default pointwise median aggregation gives a 50% breakdown point with no tuning — up to half the component estimators can produce arbitrarily bad estimates without corrupting the ensemble. When outcome data allow learning weights, XCausal also ships the three outcome-supervised stackers from the recent CATE-ensemble literature, plus Select as a feasible-selection baseline for comparison.
 
 ## Installation
 
 ```bash
-pip install metacausal
+pip install xcausal
 ```
 
 This installs the core package and its required dependencies (`numpy`, `pandas`, `scipy`). Estimator libraries are optional extras:
 
 ```bash
 # Individual libraries
-pip install "metacausal[econml]"
-pip install "metacausal[doubleml]"
-pip install "metacausal[causalml]"
-pip install "metacausal[stochtree]"
+pip install "xcausal[econml]"
+pip install "xcausal[doubleml]"
+pip install "xcausal[causalml]"
+pip install "xcausal[stochtree]"
 
 # Visualisation helpers (matplotlib)
-pip install "metacausal[plots]"
+pip install "xcausal[plots]"
 
 # Everything (frameworks + plots)
-pip install "metacausal[all]"
+pip install "xcausal[all]"
 ```
 
 Python 3.11 or later is required.
@@ -49,8 +49,8 @@ Python 3.11 or later is required.
 
 <!--phmdoctest-share-names-->
 ```python
-from metacausal import CausalEnsemble
-from metacausal.datasets import load_lalonde
+from xcausal import CausalEnsemble
+from xcausal.datasets import load_lalonde
 
 X, T, Y = load_lalonde()
 
@@ -84,14 +84,14 @@ The three-step `fit → ate / cate → bootstrap` pattern is the recommended one
 | Supervised | Causal Stacking | `CausalStacking` | Cross-fitted OOF predictions + nuisance | [Han & Wu, 2022](https://arxiv.org/abs/2202.12445) |
 | Supervised | R-Stacking | `RStacking` | Cross-fitted OOF predictions + nuisance | [Nie & Wager, 2021](https://arxiv.org/abs/1712.04912) |
 | Supervised | Q-Aggregation | `QAggregation` | Cross-fitted OOF predictions + nuisance | [Lan & Syrgkanis, 2024](https://proceedings.mlr.press/v238/lan24a.html) |
-| Supervised | Select (best-by-risk) | `Select` | Cross-fitted OOF predictions + nuisance | — *(MetaCausal baseline)* |
+| Supervised | Select (best-by-risk) | `Select` | Cross-fitted OOF predictions + nuisance | — *(XCausal baseline)* |
 
 ```python
 # By string alias (default configuration)
 ens = CausalEnsemble(aggregation="trimmed_mean")
 
 # By object (lets you configure hyperparameters)
-from metacausal.aggregation import QAggregation
+from xcausal.aggregation import QAggregation
 ens = CausalEnsemble(aggregation=QAggregation(nu=0.5, greedy=True))
 ```
 
@@ -99,7 +99,7 @@ See the accompanying paper (forthcoming) for the mathematical details of each st
 
 ## Outcome types
 
-MetaCausal supports two outcome types:
+XCausal supports two outcome types:
 
 - **Continuous** *(default)* — any numeric Y not detected as binary. Quietly absorbs counts, bounded continuous, and ordinal-as-numeric. The base learner choice is the user's responsibility (an `HistGradientBoostingRegressor` by default; user-supplied components can pass a Poisson booster if appropriate).
 - **Binary** — numeric Y with values ⊆ {0, 1} or boolean dtype. The estimand is the **risk difference** ATE/CATE (mean difference of probabilities).
@@ -119,8 +119,8 @@ different data (e.g. a binary outcome) load it explicitly.
 Estimators from EconML and CausalML are auto-detected by module prefix; DoubleML, stochtree, and arbitrary callables go through explicit adapters.
 
 ```python
-from metacausal import CausalEnsemble, GenericATEAdapter
-from metacausal.adapters import DoubleMLAdapter, CausalMLAdapter
+from xcausal import CausalEnsemble, GenericATEAdapter
+from xcausal.adapters import DoubleMLAdapter, CausalMLAdapter
 from econml.dml import CausalForestDML
 from econml.metalearners import TLearner, XLearner
 from doubleml import DoubleMLIRM
@@ -154,7 +154,7 @@ To configure **analytical** upstream inference, wrap the estimator explicitly in
 from causalml.inference.meta import BaseTRegressor
 from doubleml import DoubleMLIRM
 from econml.dml import CausalForestDML
-from metacausal.adapters import DoubleMLAdapter, EconMLAdapter, CausalMLAdapter, StochtreeAdapter
+from xcausal.adapters import DoubleMLAdapter, EconMLAdapter, CausalMLAdapter, StochtreeAdapter
 from sklearn.ensemble import (
     HistGradientBoostingRegressor as HGBR,
     HistGradientBoostingClassifier as HGBC,
@@ -173,8 +173,8 @@ For CausalML, analytical **ATE** CI settings stay on the wrapped upstream estima
 `load_lalonde(binarize_y=...)` returns the 1978-earnings outcome as a binary indicator — `"median"` for the (~50/50) above-median split, `"positive"` for the (~69/31) "any 1978 earnings" indicator. Useful as a real-data fixture without leaving the package.
 
 ```python
-from metacausal import CausalEnsemble
-from metacausal.datasets import load_lalonde
+from xcausal import CausalEnsemble
+from xcausal.datasets import load_lalonde
 
 X, T, Y = load_lalonde(binarize_y="median")
 
@@ -190,9 +190,9 @@ print(ens.ate().ate)
 ### CATE estimation with a supervised strategy
 
 ```python
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CausalStacking
-from metacausal.datasets import load_lalonde
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CausalStacking
+from xcausal.datasets import load_lalonde
 
 X, T, Y = load_lalonde()  # continuous outcome; reload since the previous
                            # recipe rebound X, T, Y to a binary outcome
@@ -229,7 +229,7 @@ for agg in ["median", "mean", "trimmed_mean", "cba"]:
 
 ### Visualisation helpers
 
-The optional `metacausal.plots` submodule (installed via the `[plots]` extra) provides four matplotlib helpers that consume the result types above:
+The optional `xcausal.plots` submodule (installed via the `[plots]` extra) provides four matplotlib helpers that consume the result types above:
 
 - `forest(boot)` — component and ensemble ATEs with bootstrap CIs.
 - `weights(ens)` — aggregation weight bars (agreement-based and supervised strategies).
@@ -239,22 +239,22 @@ The optional `metacausal.plots` submodule (installed via the `[plots]` extra) pr
 Each function is also available as a thin method on the class it plots — e.g. `boot.forest()` is equivalent to `forest(boot)`, and `ens.weights()` to `weights(ens)`.
 
 ```python
-from metacausal.plots import forest, cate_profile
+from xcausal.plots import forest, cate_profile
 
 forest(boot)
 grid = X[:, 6]  # `re74`; see load_lalonde()'s docstring for column order
 cate_profile(boot, x=grid, xlabel="re74 (1974 earnings, USD)")
 ```
 
-## Extending MetaCausal
+## Extending XCausal
 
-MetaCausal exposes five injection points that let researchers extend the package without forking it: custom component adapters, custom aggregation strategies, replacement nuisance pipelines (`fit_nuisance_fn`), replacement pseudo-outcome functions (`pseudo_outcome_fn`), and custom cross-fitting splitters. The accompanying paper (forthcoming) covers each injection point in detail.
+XCausal exposes five injection points that let researchers extend the package without forking it: custom component adapters, custom aggregation strategies, replacement nuisance pipelines (`fit_nuisance_fn`), replacement pseudo-outcome functions (`pseudo_outcome_fn`), and custom cross-fitting splitters. The accompanying paper (forthcoming) covers each injection point in detail.
 
 The lowest-effort path for adding a new estimator is `GenericCATEAdapter`, which wraps a fit function, a CATE prediction function, and (optionally) an ATE prediction function into a component without implementing the full protocol:
 
 <!--phmdoctest-skip-->
 ```python
-from metacausal import CausalEnsemble, GenericCATEAdapter
+from xcausal import CausalEnsemble, GenericCATEAdapter
 
 def fit_fn(X, T, Y, **kwargs):
     # Train your model and return any state you need.
@@ -275,16 +275,16 @@ my_method = GenericCATEAdapter(
 ens = CausalEnsemble(methods=[my_method, ...])
 ```
 
-**Parallelism cooperation contract.** MetaCausal automatically suppresses the internal `n_jobs`/`cv_n_jobs` of the estimators it wraps for EconML, CausalML, DoubleML, and stochtree whenever they run inside one of MetaCausal's own workers (`fit`/`bootstrap`, or supervised cross-fitting), so those defaults can't nest a second worker pool and oversubscribe cores. That automatic suppression can't reach into an opaque `fn_fit`/`fn_cate`/`fn_ate` callable — if your model parallelizes internally, either construct it with its own parallelism knob fixed at `1` up front, or check the same signal MetaCausal's built-in adapters use:
+**Parallelism cooperation contract.** XCausal automatically suppresses the internal `n_jobs`/`cv_n_jobs` of the estimators it wraps for EconML, CausalML, DoubleML, and stochtree whenever they run inside one of XCausal's own workers (`fit`/`bootstrap`, or supervised cross-fitting), so those defaults can't nest a second worker pool and oversubscribe cores. That automatic suppression can't reach into an opaque `fn_fit`/`fn_cate`/`fn_ate` callable — if your model parallelizes internally, either construct it with its own parallelism knob fixed at `1` up front, or check the same signal XCausal's built-in adapters use:
 
 ```python
 import os
-from metacausal.adapters import INNER_WORKER_ENV
+from xcausal.adapters import INNER_WORKER_ENV
 
 def fit_fn(X, T, Y, **kwargs):
     model = MyParallelModel(n_jobs=-1)
     if os.environ.get(INNER_WORKER_ENV):
-        # Already inside a MetaCausal worker; nesting our own pool here
+        # Already inside a XCausal worker; nesting our own pool here
         # would oversubscribe cores, so fall back to serial.
         model.n_jobs = 1
     model.fit(X, T, Y)
@@ -297,23 +297,23 @@ A single `random_state` seed deterministically propagates to every stochastic su
 
 A single `n_jobs` knob on `fit`, `bootstrap`, and `estimate` routes parallelism to the outermost applicable level (bootstrap replicates when `n_boot > 0`; otherwise supervised cross-fitting or component fits) and pins BLAS/OpenMP threads inside each worker to prevent oversubscription. The accompanying paper (forthcoming) explains the rationale.
 
-This exclusive-outer-parallelism design also covers the estimators MetaCausal wraps, not just its own workers: for EconML, CausalML, DoubleML, and stochtree components, MetaCausal suppresses the wrapped estimator's own internal parallelism knob (EconML/DoubleML's `n_jobs`, CausalML's `cv_n_jobs`) whenever it runs inside one of MetaCausal's workers, as an ongoing guarantee rather than a one-off fix. Custom components (`GenericCATEAdapter`, arbitrary callables) are not covered automatically — see "Extending MetaCausal" above for the cooperation contract if your own model parallelizes internally.
+This exclusive-outer-parallelism design also covers the estimators XCausal wraps, not just its own workers: for EconML, CausalML, DoubleML, and stochtree components, XCausal suppresses the wrapped estimator's own internal parallelism knob (EconML/DoubleML's `n_jobs`, CausalML's `cv_n_jobs`) whenever it runs inside one of XCausal's workers, as an ongoing guarantee rather than a one-off fix. Custom components (`GenericCATEAdapter`, arbitrary callables) are not covered automatically — see "Extending XCausal" above for the cooperation contract if your own model parallelizes internally.
 
 The outer process (your main script) keeps the platform-default BLAS thread count, which is fine on macOS and Windows. On Linux, where joblib's loky backend can occasionally deadlock at fork time when the parent's BLAS pool is already running threads, defensive users may want to set the standard thread env vars (`OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `NUMEXPR_NUM_THREADS=1`, `VECLIB_MAXIMUM_THREADS=1`) before invoking Python. This package's own test suite (`tests/conftest.py`) sets these automatically, so contributors running `pytest` locally do not need the shell prefix.
 
 > **Known issue — `CausalForestDML` under heavy bootstrap parallelism.** EconML's generalized-random-forest tree builder (`econml.tree`) intermittently segfaults (SIGSEGV/SIGBUS) under the repeated component refits that `bootstrap()`/`estimate(..., n_boot=...)` perform on the default pool — a latent out-of-bounds bug in the upstream library, triggered probabilistically and more often at higher `n_jobs`/`n_boot` ([py-why/EconML#470](https://github.com/py-why/EconML/issues/470), open and unfixed as of EconML 0.16.0). The other eight default components are unaffected. If you hit it, drop `CausalForestDML` from the pool:
 >
 > ```python
-> from metacausal import CausalEnsemble
-> from metacausal.defaults import default_methods
+> from xcausal import CausalEnsemble
+> from xcausal.defaults import default_methods
 >
 > methods = [m for m in default_methods() if type(m).__name__ != "CausalForestDML"]
 > ens = CausalEnsemble(methods=methods)
 > ```
 
 ```python
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CausalStacking
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CausalStacking
 
 # Parallelise supervised cross-fitting, deterministic:
 ens = CausalEnsemble(aggregation=CausalStacking())
@@ -340,4 +340,4 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ## License
 
-MetaCausal is distributed under the MIT License. See [LICENSE](https://github.com/asmahani/metacausal/blob/main/LICENSE).
+XCausal is distributed under the MIT License. See [LICENSE](https://github.com/asmahani/xcausal/blob/main/LICENSE).

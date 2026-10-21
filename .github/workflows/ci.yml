@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Headless CI runner has no display; force the non-interactive Agg
-      # backend up front so plotting docstring examples (metacausal.plots.*)
+      # backend up front so plotting docstring examples (xcausal.plots.*)
       # don't each need their own matplotlib.use("Agg") call, and don't try
       # to open a GUI window during the doctest builder run.
       MPLBACKEND: Agg
@@ -74,8 +74,8 @@ jobs:
 
       - name: Install package, docs, and full extras
         # Full extras (not just [docs]) so autodoc can actually import every
-        # adapter module (metacausal.adapters.econml, .causalml, etc.) and
-        # metacausal.plots (needs matplotlib) when generating their pages.
+        # adapter module (xcausal.adapters.econml, .causalml, etc.) and
+        # xcausal.plots (needs matplotlib) when generating their pages.
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all,docs]"

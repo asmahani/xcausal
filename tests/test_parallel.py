@@ -16,10 +16,10 @@ import pytest
 
 pytest.importorskip("joblib")
 
-from metacausal import CausalEnsemble, ComponentFailureWarning, Median
-from metacausal.aggregation import CrossFitSplit, SupervisedStrategy
-from metacausal.aggregation.weights import EnsembleWeights
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CausalEnsemble, ComponentFailureWarning, Median
+from xcausal.aggregation import CrossFitSplit, SupervisedStrategy
+from xcausal.aggregation.weights import EnsembleWeights
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +325,7 @@ def test_pin_threads_sets_inner_worker_sentinel():
     thread vars. Restores the process environment afterwards."""
     import os
 
-    from metacausal._parallel import (
+    from xcausal._parallel import (
         INNER_WORKER_ENV,
         _THREAD_PIN_VARS,
         _pin_threads,
@@ -348,16 +348,16 @@ def test_pin_threads_sets_inner_worker_sentinel():
 
 
 def test_inner_worker_env_is_publicly_exported():
-    """INNER_WORKER_ENV must be importable from the public metacausal.adapters
-    namespace (issue #49) -- not just metacausal._parallel -- so that authors
+    """INNER_WORKER_ENV must be importable from the public xcausal.adapters
+    namespace (issue #49) -- not just xcausal._parallel -- so that authors
     of custom components (GenericCATEAdapter, arbitrary callables) have a
-    supported way to cooperate with MetaCausal's own-worker parallelism
+    supported way to cooperate with XCausal's own-worker parallelism
     guard without reaching into a private module."""
-    from metacausal._parallel import INNER_WORKER_ENV as _private
-    from metacausal.adapters import INNER_WORKER_ENV as _public
+    from xcausal._parallel import INNER_WORKER_ENV as _private
+    from xcausal.adapters import INNER_WORKER_ENV as _public
 
-    assert _public == _private == "METACAUSAL_INNER_WORKER"
-    assert "INNER_WORKER_ENV" in __import__("metacausal.adapters", fromlist=["__all__"]).__all__
+    assert _public == _private == "XCAUSAL_INNER_WORKER"
+    assert "INNER_WORKER_ENV" in __import__("xcausal.adapters", fromlist=["__all__"]).__all__
 
 
 class TestSklearnHGBSmoke:
@@ -372,7 +372,7 @@ class TestSklearnHGBSmoke:
             HistGradientBoostingRegressor,
         )
 
-        from metacausal.adapters import GenericCATEAdapter
+        from xcausal.adapters import GenericCATEAdapter
 
         X, T, Y = _dgp(n=400)
         methods = [

@@ -16,9 +16,9 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from metacausal import CausalEnsemble, ComponentExclusionWarning
-from metacausal.adapters.generic import GenericATEAdapter
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CausalEnsemble, ComponentExclusionWarning
+from xcausal.adapters.generic import GenericATEAdapter
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +360,7 @@ class TestRealAdapterIntegration:
         from econml.metalearners import SLearner
         from sklearn.ensemble import HistGradientBoostingRegressor
 
-        from metacausal.adapters.causalml import CausalMLAdapter
+        from xcausal.adapters.causalml import CausalMLAdapter
         from causalml.inference.meta import BaseSClassifier
         from sklearn.ensemble import HistGradientBoostingClassifier
 
@@ -392,7 +392,7 @@ class TestRealAdapterIntegration:
             HistGradientBoostingRegressor,
         )
 
-        from metacausal.adapters.doubleml import DoubleMLAdapter
+        from xcausal.adapters.doubleml import DoubleMLAdapter
 
         adapter = DoubleMLAdapter(
             DoubleMLIRM,

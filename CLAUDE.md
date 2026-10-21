@@ -1,4 +1,4 @@
-# MetaCausal — Project Notes
+# XCausal — Project Notes
 
 ## Testing
 
@@ -8,7 +8,7 @@ Without pinning, the test suite takes ~65 s; with pinning, ~18 s — a
 fits.
 
 The package itself enforces this *inside* its own parallel workers (via
-`metacausal/_parallel.py:_pin_threads` registered as the `joblib`
+`xcausal/_parallel.py:_pin_threads` registered as the `joblib`
 initializer), but pytest is an outer harness that bypasses that path
 when it dispatches to its own xdist workers or imports estimators
 directly. The pinning therefore has to be applied at the shell level,
