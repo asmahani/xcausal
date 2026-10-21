@@ -120,7 +120,9 @@ jobs:
       github.event.repository.private == false
     runs-on: ubuntu-latest
     concurrency:
-      group: pages
+      # Not `pages`: the 2026-10-21 run is stuck waiting on that group and
+      # cannot be cancelled, so a new deploy would queue behind it forever.
+      group: github-pages
       cancel-in-progress: false
     permissions:
       pages: write
