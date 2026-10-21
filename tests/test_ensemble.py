@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from metacausal import (
+from xcausal import (
     AteEstimate,
     BootstrapResult,
     CateEstimate,
@@ -16,7 +16,7 @@ from metacausal import (
     Mean,
     Median,
 )
-from metacausal.adapters import GenericAdapter, GenericCATEAdapter
+from xcausal.adapters import GenericAdapter, GenericCATEAdapter
 
 
 # ---------------------------------------------------------------------------

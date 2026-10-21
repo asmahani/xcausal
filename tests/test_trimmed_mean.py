@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from metacausal import CausalEnsemble, TrimmedMean
-from metacausal.aggregation import PointwiseStrategy
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CausalEnsemble, TrimmedMean
+from xcausal.aggregation import PointwiseStrategy
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------

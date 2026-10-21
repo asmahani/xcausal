@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 
-from metacausal.adapters.doubleml import DoubleMLAdapter
+from xcausal.adapters.doubleml import DoubleMLAdapter
 
 from doubleml import DoubleMLIRM, DoubleMLPLR
 
@@ -99,4 +99,4 @@ def test_ate_forwards_alpha_to_confint_level():
 
 
 def test_importable_from_top_level():
-    from metacausal import DoubleMLAdapter  # noqa: F401
+    from xcausal import DoubleMLAdapter  # noqa: F401

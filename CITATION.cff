@@ -4,17 +4,17 @@ message: >-
   (A companion paper is currently under review; this file will be
   updated with a preferred-citation entry for it if/when published.)
 type: software
-title: "MetaCausal: Cross-Framework Causal-ML Ensembles for ATE and CATE Estimation"
+title: "XCausal: Cross-Framework Causal-ML Ensembles for ATE and CATE Estimation"
 authors:
   - family-names: "Sharabiani"
     given-names: "Mansour T. A."
   - family-names: "Mahani"
     given-names: "Alireza S."
     email: alireza.s.mahani@gmail.com
-version: 0.7.0
-date-released: "2026-07-17"
-repository-code: "https://github.com/asmahani/metacausal"
-url: "https://asmahani.github.io/metacausal/"
+version: 0.8.0
+date-released: "2026-10-21"
+repository-code: "https://github.com/asmahani/xcausal"
+url: "https://asmahani.github.io/xcausal/"
 license: MIT
 keywords:
   - causal inference

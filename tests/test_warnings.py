@@ -1,9 +1,9 @@
-"""Tests pinning the MetaCausalWarning hierarchy and filter behaviour.
+"""Tests pinning the XCausalWarning hierarchy and filter behaviour.
 
 The hierarchy is:
 
     Warning
-    └── MetaCausalWarning
+    └── XCausalWarning
         ├── ComponentWarning
         │   ├── ComponentFailureWarning   (component fit/predict failures)
         │   └── ComponentExclusionWarning (configuration mismatches)
@@ -25,18 +25,18 @@ import warnings
 import numpy as np
 import pytest
 
-from metacausal import (
+from xcausal import (
     BootstrapWarning,
     CausalEnsemble,
     ComponentExclusionWarning,
     ComponentFailureWarning,
     ComponentWarning,
     Median,
-    MetaCausalWarning,
+    XCausalWarning,
 )
-from metacausal.adapters.generic import GenericATEAdapter, GenericCATEAdapter
-from metacausal.aggregation import CausalStacking, CrossFitSplit
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal.adapters.generic import GenericATEAdapter, GenericCATEAdapter
+from xcausal.aggregation import CausalStacking, CrossFitSplit
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------
@@ -45,14 +45,14 @@ from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 class TestHierarchy:
-    def test_metacausal_subclasses_warning(self):
-        assert issubclass(MetaCausalWarning, Warning)
+    def test_xcausal_subclasses_warning(self):
+        assert issubclass(XCausalWarning, Warning)
 
-    def test_component_subclasses_metacausal(self):
-        assert issubclass(ComponentWarning, MetaCausalWarning)
+    def test_component_subclasses_xcausal(self):
+        assert issubclass(ComponentWarning, XCausalWarning)
 
-    def test_bootstrap_subclasses_metacausal(self):
-        assert issubclass(BootstrapWarning, MetaCausalWarning)
+    def test_bootstrap_subclasses_xcausal(self):
+        assert issubclass(BootstrapWarning, XCausalWarning)
 
     def test_failure_subclasses_component(self):
         assert issubclass(ComponentFailureWarning, ComponentWarning)
@@ -60,12 +60,12 @@ class TestHierarchy:
     def test_exclusion_subclasses_component(self):
         assert issubclass(ComponentExclusionWarning, ComponentWarning)
 
-    def test_no_metacausal_class_subclasses_runtimewarning(self):
+    def test_no_xcausal_class_subclasses_runtimewarning(self):
         # Independence from RuntimeWarning is the design contract — users
         # who escalate RuntimeWarning broadly should NOT inadvertently
-        # catch metacausal warnings, and vice versa.
+        # catch xcausal warnings, and vice versa.
         for cls in (
-            MetaCausalWarning, ComponentWarning, ComponentFailureWarning,
+            XCausalWarning, ComponentWarning, ComponentFailureWarning,
             ComponentExclusionWarning, BootstrapWarning,
         ):
             assert not issubclass(cls, RuntimeWarning), (
@@ -198,11 +198,11 @@ class _GoodCATE:
 class TestFilterScoping:
     """Verify each level of the hierarchy filters at the right granularity."""
 
-    def test_filter_metacausal_catches_failure(self):
-        # MetaCausalWarning is the umbrella; escalating at this level
+    def test_filter_xcausal_catches_failure(self):
+        # XCausalWarning is the umbrella; escalating at this level
         # should catch any subclass.
         with warnings.catch_warnings():
-            warnings.filterwarnings("error", category=MetaCausalWarning)
+            warnings.filterwarnings("error", category=XCausalWarning)
             ens = CausalEnsemble(methods=[
                 GenericATEAdapter(_good_callable, name="good"),
                 _FailingAtFit(),
@@ -277,9 +277,9 @@ class TestFilterScoping:
             with pytest.warns(BootstrapWarning):
                 ens.bootstrap(n_boot=5, random_state=0)
 
-    def test_filter_runtimewarning_does_not_catch_metacausal(self):
+    def test_filter_runtimewarning_does_not_catch_xcausal(self):
         # The whole point of inheriting from Warning (not RuntimeWarning)
-        # is that RuntimeWarning policies do not affect metacausal warnings.
+        # is that RuntimeWarning policies do not affect xcausal warnings.
         with warnings.catch_warnings():
             warnings.filterwarnings("error", category=RuntimeWarning)
             warnings.simplefilter("default", category=ComponentFailureWarning)

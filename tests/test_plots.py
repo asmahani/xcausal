@@ -1,4 +1,4 @@
-"""Tests for metacausal.plots and BootstrapResult.component_ate_summary."""
+"""Tests for xcausal.plots and BootstrapResult.component_ate_summary."""
 
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CrossFitSplit
-from metacausal.aggregation.weights import BootstrapResult, EnsembleWeights
-from metacausal.estimators import (
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CrossFitSplit
+from xcausal.aggregation.weights import BootstrapResult, EnsembleWeights
+from xcausal.estimators import (
     CateEstimate,
     ComponentAteEstimate,
     ComponentCateEstimate,
 )
-from metacausal.plots import cate_profile, disagreement, forest, weights
+from xcausal.plots import cate_profile, disagreement, forest, weights
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
 from tests.test_supervised_bootstrap import _fitted_supervised_ensemble
@@ -334,7 +334,7 @@ class TestWeights:
     def test_raises_for_pointwise_ensemble(self):
         # _fitted_supervised_ensemble uses a supervised strategy; build a
         # pointwise one instead.
-        from metacausal.datasets import load_lalonde as _load
+        from xcausal.datasets import load_lalonde as _load
         # Use a minimal mock adapter + Median aggregator; avoid real fits.
         ens = CausalEnsemble(aggregation="median")
         X, T, Y = _load()
@@ -539,7 +539,7 @@ class TestMethodDelegates:
     """``BootstrapResult.forest()``/``.cate_profile()``,
     ``CateEstimate.cate_profile()``, ``EnsembleWeights.plot()``, and
     ``CausalEnsemble.weights()``/``.disagreement()`` are thin wrappers
-    around the corresponding ``metacausal.plots`` function. Each test
+    around the corresponding ``xcausal.plots`` function. Each test
     checks the method and the function it wraps produce the same output
     on the same input.
     """

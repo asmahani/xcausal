@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression
 
-from metacausal import CausalEnsemble, GenericAdapter, GenericATEAdapter, GenericCATEAdapter
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CausalEnsemble, GenericAdapter, GenericATEAdapter, GenericCATEAdapter
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +363,7 @@ class TestCausalEnsembleIntegration:
 
     def test_generic_cate_adapter_with_cba(self):
         """Works with agreement-based aggregation."""
-        from metacausal.aggregation import CBA
+        from xcausal.aggregation import CBA
         fn_fit, fn_cate, _ = _tlearner_fns()
         X, T, Y = _dgp(n=150)
         ens = CausalEnsemble(
@@ -402,4 +402,4 @@ class TestCausalEnsembleIntegration:
         assert not adapter.supports_cate
 
     def test_importable_from_top_level(self):
-        from metacausal import GenericATEAdapter, GenericCATEAdapter  # noqa: F401
+        from xcausal import GenericATEAdapter, GenericCATEAdapter  # noqa: F401

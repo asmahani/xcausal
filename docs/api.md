@@ -2,17 +2,17 @@
 
 One page per public class and function, generated from docstrings via
 `sphinx.ext.autosummary`. Each `##` section below is a real import
-path (`metacausal`, `metacausal.aggregation`, ...); each item is
+path (`xcausal`, `xcausal.aggregation`, ...); each item is
 listed once, under the module it's *defined* in.
 
 Many aggregation-strategy and adapter classes (e.g. `Median`,
 `CausalMLAdapter`) are re-exported at the top level for convenience --
-`from metacausal import Median` works even though it's documented
-under `metacausal.aggregation` below. See the [Mixed-framework method
-list](index.md#mixed-framework-method-list) or `metacausal.__all__`
+`from xcausal import Median` works even though it's documented
+under `xcausal.aggregation` below. See the [Mixed-framework method
+list](index.md#mixed-framework-method-list) or `xcausal.__all__`
 for the exact top-level surface.
 
-## `metacausal`
+## `xcausal`
 
 Top-level namespace: the ensemble class, its estimate/result types,
 and outcome-type detection.
@@ -22,12 +22,12 @@ and outcome-type detection.
    :toctree: generated
    :nosignatures:
 
-   metacausal.CausalEnsemble
-   metacausal.AteEstimate
-   metacausal.CateEstimate
-   metacausal.ComponentAteEstimate
-   metacausal.ComponentCateEstimate
-   metacausal.infer_outcome_type
+   xcausal.CausalEnsemble
+   xcausal.AteEstimate
+   xcausal.CateEstimate
+   xcausal.ComponentAteEstimate
+   xcausal.ComponentCateEstimate
+   xcausal.infer_outcome_type
 ```
 
 ### Warnings
@@ -37,14 +37,14 @@ and outcome-type detection.
    :toctree: generated
    :nosignatures:
 
-   metacausal.MetaCausalWarning
-   metacausal.ComponentWarning
-   metacausal.ComponentFailureWarning
-   metacausal.ComponentExclusionWarning
-   metacausal.BootstrapWarning
+   xcausal.XCausalWarning
+   xcausal.ComponentWarning
+   xcausal.ComponentFailureWarning
+   xcausal.ComponentExclusionWarning
+   xcausal.BootstrapWarning
 ```
 
-## `metacausal.aggregation`
+## `xcausal.aggregation`
 
 Aggregation strategies (combine component ATE/CATE predictions into an
 ensemble estimate) and the result types they produce.
@@ -54,20 +54,20 @@ ensemble estimate) and the result types they produce.
    :toctree: generated
    :nosignatures:
 
-   metacausal.aggregation.AggregationStrategy
-   metacausal.aggregation.PointwiseStrategy
-   metacausal.aggregation.AgreementStrategy
-   metacausal.aggregation.SupervisedStrategy
-   metacausal.aggregation.Mean
-   metacausal.aggregation.Median
-   metacausal.aggregation.TrimmedMean
-   metacausal.aggregation.CBA
-   metacausal.aggregation.CausalStacking
-   metacausal.aggregation.QAggregation
-   metacausal.aggregation.RStacking
-   metacausal.aggregation.Select
-   metacausal.aggregation.EnsembleWeights
-   metacausal.aggregation.BootstrapResult
+   xcausal.aggregation.AggregationStrategy
+   xcausal.aggregation.PointwiseStrategy
+   xcausal.aggregation.AgreementStrategy
+   xcausal.aggregation.SupervisedStrategy
+   xcausal.aggregation.Mean
+   xcausal.aggregation.Median
+   xcausal.aggregation.TrimmedMean
+   xcausal.aggregation.CBA
+   xcausal.aggregation.CausalStacking
+   xcausal.aggregation.QAggregation
+   xcausal.aggregation.RStacking
+   xcausal.aggregation.Select
+   xcausal.aggregation.EnsembleWeights
+   xcausal.aggregation.BootstrapResult
 ```
 
 ### Cross-fitting
@@ -77,9 +77,9 @@ ensemble estimate) and the result types they produce.
    :toctree: generated
    :nosignatures:
 
-   metacausal.aggregation.CrossFitSplit
-   metacausal.aggregation.TrainAvgSplit
-   metacausal.aggregation.FoldSpec
+   xcausal.aggregation.CrossFitSplit
+   xcausal.aggregation.TrainAvgSplit
+   xcausal.aggregation.FoldSpec
 ```
 
 ### Nuisance estimation
@@ -89,13 +89,13 @@ ensemble estimate) and the result types they produce.
    :toctree: generated
    :nosignatures:
 
-   metacausal.aggregation.NuisanceEstimates
-   metacausal.aggregation.fit_nuisance
-   metacausal.aggregation.dr_pseudo_outcome
-   metacausal.aggregation.robinson_residuals
+   xcausal.aggregation.NuisanceEstimates
+   xcausal.aggregation.fit_nuisance
+   xcausal.aggregation.dr_pseudo_outcome
+   xcausal.aggregation.robinson_residuals
 ```
 
-## `metacausal.adapters`
+## `xcausal.adapters`
 
 Wrappers presenting each supported library's estimators (EconML,
 CausalML, DoubleML, stochtree) through one common interface, plus
@@ -106,19 +106,19 @@ generic adapters for wrapping arbitrary user-supplied estimators.
    :toctree: generated
    :nosignatures:
 
-   metacausal.adapters.CausalEstimator
-   metacausal.adapters.EconMLAdapter
-   metacausal.adapters.CausalMLAdapter
-   metacausal.adapters.DoubleMLAdapter
-   metacausal.adapters.StochtreeAdapter
-   metacausal.adapters.GenericATEAdapter
-   metacausal.adapters.GenericCATEAdapter
-   metacausal.adapters.INNER_WORKER_ENV
+   xcausal.adapters.CausalEstimator
+   xcausal.adapters.EconMLAdapter
+   xcausal.adapters.CausalMLAdapter
+   xcausal.adapters.DoubleMLAdapter
+   xcausal.adapters.StochtreeAdapter
+   xcausal.adapters.GenericATEAdapter
+   xcausal.adapters.GenericCATEAdapter
+   xcausal.adapters.INNER_WORKER_ENV
 ```
 
-## `metacausal.plots`
+## `xcausal.plots`
 
-Requires the `plots` extra (`pip install "metacausal[plots]"`). Each
+Requires the `plots` extra (`pip install "xcausal[plots]"`). Each
 function is also available as a thin method on the class it plots --
 see the corresponding class above (e.g. `BootstrapResult.forest()`).
 
@@ -127,18 +127,18 @@ see the corresponding class above (e.g. `BootstrapResult.forest()`).
    :toctree: generated
    :nosignatures:
 
-   metacausal.plots.forest
-   metacausal.plots.weights
-   metacausal.plots.cate_profile
-   metacausal.plots.disagreement
+   xcausal.plots.forest
+   xcausal.plots.weights
+   xcausal.plots.cate_profile
+   xcausal.plots.disagreement
 ```
 
-## `metacausal.datasets`
+## `xcausal.datasets`
 
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
    :nosignatures:
 
-   metacausal.datasets.load_lalonde
+   xcausal.datasets.load_lalonde
 ```

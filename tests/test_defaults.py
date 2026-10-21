@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from metacausal import CausalEnsemble
-from metacausal.datasets import load_lalonde
-from metacausal.defaults import default_methods, default_outcome_model
+from xcausal import CausalEnsemble
+from xcausal.datasets import load_lalonde
+from xcausal.defaults import default_methods, default_outcome_model
 
 
 def test_default_library_has_nine_components_spanning_four_frameworks():
@@ -94,7 +94,7 @@ class TestDefaultMethodsOutcomeType:
 class TestRLearnerSerialCrossFit:
     """CausalML's BaseRLearner family defaults ``cv_n_jobs=-1`` (unlike
     EconML's ``n_jobs``, this knob is on by default), which would otherwise
-    nest a joblib pool inside MetaCausal's own outer parallelism on every
+    nest a joblib pool inside XCausal's own outer parallelism on every
     fit (issue #47). The shipped default pools pin it to 1 explicitly.
     """
 
