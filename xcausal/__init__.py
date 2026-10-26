@@ -33,6 +33,7 @@ from xcausal._warnings import (
     ComponentExclusionWarning,
     ComponentFailureWarning,
     ComponentWarning,
+    RiskDifferenceWarning,
     XCausalWarning,
 )
 
@@ -77,6 +78,7 @@ __all__ = [
     "ComponentFailureWarning",
     "ComponentExclusionWarning",
     "BootstrapWarning",
+    "RiskDifferenceWarning",
     # Backward-compatible aliases
     "CausalEstimate",
     "EnsembleEstimate",

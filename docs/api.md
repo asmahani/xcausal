@@ -42,6 +42,7 @@ and outcome-type detection.
    xcausal.ComponentFailureWarning
    xcausal.ComponentExclusionWarning
    xcausal.BootstrapWarning
+   xcausal.RiskDifferenceWarning
 ```
 
 ## `xcausal.aggregation`

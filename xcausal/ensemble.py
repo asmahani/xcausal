@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import sys
 import time
 import warnings
 from typing import TYPE_CHECKING, Any, Literal
@@ -18,6 +19,7 @@ from xcausal._warnings import (
     BootstrapWarning,
     ComponentExclusionWarning,
     ComponentFailureWarning,
+    RiskDifferenceWarning,
 )
 from xcausal.adapters.base import CausalEstimator
 from xcausal.adapters.econml import EconMLAdapter, _is_econml
@@ -935,7 +937,7 @@ class CausalEnsemble:
                 "The override's fit_weights() logic is applied to the original "
                 "cross-fitting and nuisance estimates.",
                 UserWarning,
-                stacklevel=4,
+                stacklevel=5,
             )
 
     # ------------------------------------------------------------------
@@ -959,7 +961,27 @@ class CausalEnsemble:
         Returns:
             AteEstimate with aggregated ATE and component estimates.
             For bootstrap CIs, use ``bootstrap()``.
+
+        Warns:
+            RiskDifferenceWarning: On a resolved binary outcome, if the
+                ensemble ATE is outside [-1, 1]. Agreement and supervised
+                strategies also check the ensemble CATE used to compute
+                the ATE, so a call can emit one CATE warning and one ATE
+                warning. Estimates are returned unchanged; absence of a
+                warning does not imply a bounded estimator.
         """
+        result, cate_result = self._compute_ate(X, aggregation)
+        if cate_result is not None:
+            self._warn_risk_difference(cate_result.cate, "CATE")
+        self._warn_risk_difference(result.ate, "ATE")
+        return result
+
+    def _compute_ate(
+        self,
+        X: np.ndarray | None,
+        aggregation: str | AggregationStrategy | None = None,
+    ) -> tuple[AteEstimate, CateEstimate | None]:
+        """Compute ATE and any CATE used for it, without bound warnings."""
         if not self._is_fitted:
             raise RuntimeError(
                 "CausalEnsemble is not fitted. Call fit() first."
@@ -976,32 +998,36 @@ class CausalEnsemble:
                 warnings.warn(
                     f"Method '{adapter.name}' failed during ate(): {e}",
                     ComponentFailureWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
 
         if not component_estimates:
             raise RuntimeError("All component methods failed during ate().")
 
+        cate_result = None
         if isinstance(strategy, PointwiseStrategy):
             ates = np.array([e.ate for e in component_estimates.values()])
             ate = float(strategy.aggregate(ates))
         else:
             # AgreementStrategy and SupervisedStrategy: ATE = mean of ensemble CATE.
-            # Pass the original aggregation parameter so cate() resolves independently
+            # Pass the original aggregation parameter so CATE resolves independently
             # (avoids threading a mutated strategy object through two call sites).
-            cate_result = self.cate(X_eval, aggregation=aggregation)
+            cate_result = self._compute_cate(
+                X_eval, aggregation=aggregation, stacklevel=4,
+            )
             ate = float(cate_result.cate.mean())
             component_estimates = {
                 name: ComponentAteEstimate(ate=float(ce.cate.mean()))
                 for name, ce in cate_result.component_estimates.items()
             }
 
-        return AteEstimate(
+        result = AteEstimate(
             ate=ate,
             component_estimates=component_estimates,
             aggregation=type(strategy).__name__,
             component_fit_times=self._component_fit_times,
         )
+        return result, cate_result
 
     def cate(
         self,
@@ -1029,7 +1055,25 @@ class CausalEnsemble:
         Returns:
             CateEstimate with aggregated CATE and component estimates.
             For bootstrap CIs, use ``bootstrap()``.
+
+        Warns:
+            RiskDifferenceWarning: On a resolved binary outcome, one
+                warning if any ensemble CATE entries are outside [-1, 1],
+                reporting their count. Estimates are returned unchanged;
+                absence of a warning does not imply a bounded estimator.
         """
+        result = self._compute_cate(X, aggregation)
+        self._warn_risk_difference(result.cate, "CATE")
+        return result
+
+    def _compute_cate(
+        self,
+        X: np.ndarray | None,
+        aggregation: str | AggregationStrategy | None = None,
+        *,
+        stacklevel: int = 3,
+    ) -> CateEstimate:
+        """Compute CATE without bound warnings; public callers check results."""
         if not self._is_fitted:
             raise RuntimeError(
                 "CausalEnsemble is not fitted. Call fit() first."
@@ -1054,7 +1098,7 @@ class CausalEnsemble:
                 warnings.warn(
                     f"Method '{adapter.name}' failed during cate(): {e}",
                     ComponentFailureWarning,
-                    stacklevel=2,
+                    stacklevel=stacklevel,
                 )
 
         if not component_estimates:
@@ -1072,6 +1116,43 @@ class CausalEnsemble:
             component_estimates=component_estimates,
             aggregation=type(strategy).__name__,
             ensemble_weights=strategy.ensemble_weights,
+        )
+
+    def _warn_risk_difference(
+        self, values: float | np.ndarray, estimand: Literal["ATE", "CATE"],
+    ) -> None:
+        """Warn about ensemble bounds at the first caller outside xcausal."""
+        if self._outcome_type != "binary":
+            return
+        values = np.asarray(values)
+        count = int(np.count_nonzero((values < -1) | (values > 1)))
+        if not count:
+            return
+        if estimand == "ATE":
+            message = f"Ensemble ATE {float(values)!r} is outside [-1, 1]"
+        else:
+            message = (
+                f"Ensemble CATE has {count} of {values.size} entries outside [-1, 1]"
+            )
+
+        # Python 3.11 has no warnings.warn(skip_file_prefixes=...). Skip
+        # package frames explicitly so estimate() and plotting wrappers
+        # also point to the user, without changing global warning filters.
+        stacklevel = 2
+        frame = sys._getframe(1)
+        try:
+            while frame is not None and frame.f_globals.get(
+                "__name__", ""
+            ).startswith("xcausal."):
+                stacklevel += 1
+                frame = frame.f_back
+        finally:
+            del frame
+        warnings.warn(
+            message + " for a binary outcome. Estimates are returned unchanged, "
+            "without clipping; the estimator is not constrained to these bounds.",
+            RiskDifferenceWarning,
+            stacklevel=stacklevel,
         )
 
     # ------------------------------------------------------------------
@@ -1138,6 +1219,15 @@ class CausalEnsemble:
         Returns:
             BootstrapResult with ATE and CATE point estimates, CIs, and
             bootstrap distributions.
+
+        Warns:
+            RiskDifferenceWarning: On a resolved binary outcome, at most
+                one warning each for an original-fit ensemble ATE or CATE
+                outside [-1, 1]. CATE warnings report the number of entries
+                outside the bounds. Bootstrap replicates, confidence
+                intervals, and component estimates are not checked or
+                clipped. Absence of a warning does not imply a bounded
+                estimator.
         """
         if not self._is_fitted:
             raise RuntimeError(
@@ -1178,10 +1268,14 @@ class CausalEnsemble:
         self._boot_m = m
         self._boot_stratify = stratify
 
-        # Point estimates from the original fit
-        ate_result = self.ate(X_eval)
+        # Preserve the original point-estimate computations, but check
+        # each reported estimate once (ATE may also compute CATE internally).
+        ate_result, _ = self._compute_ate(X_eval)
         has_cate = any(a.supports_cate for a in self._fitted_adapters)
-        cate_result = self.cate(X_eval) if has_cate else None
+        cate_result = self._compute_cate(X_eval) if has_cate else None
+        self._warn_risk_difference(ate_result.ate, "ATE")
+        if cate_result is not None:
+            self._warn_risk_difference(cate_result.cate, "CATE")
 
         comp_ate_ests = dict(ate_result.component_estimates)
         comp_cate_ests = (

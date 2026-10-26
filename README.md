@@ -108,6 +108,18 @@ Detection happens at fit time: `CausalEnsemble().fit(X, T, Y)` inspects Y, picks
 
 The default binary pool (8 components) drops `DoubleMLPLR`, EconML S/T/X-Learners, the `BaseRRegressor`, and stochtree BCF — all of which either lack a binary-capable code path in their upstream library or would silently fit a linear-probability model — and substitutes the CausalML classifier siblings (`BaseSClassifier`, `BaseTClassifier`, `BaseXClassifier`, `BaseRClassifier`). `DoubleMLIRM`, `CausalForestDML`, `DRLearner`, and `TMLELearner` remain.
 
+The population risk difference lies in [-1, 1], but fitted ATE/CATE estimates
+can exceed those bounds under any aggregation strategy. On a resolved binary
+outcome, `RiskDifferenceWarning` flags an ensemble ATE outside the interval
+or counts the ensemble CATE entries outside it. Agreement and supervised
+`ate()` calls check both CATE and its mean, so they can emit two warnings.
+`bootstrap()` checks the original-fit ATE and CATE at most once each; it does
+not check individual replicates, confidence intervals, or component estimates.
+All estimates and intervals are returned unchanged, without clipping. Absence
+of a warning does not imply that the estimator is bounded. Import the class
+with `from xcausal import RiskDifferenceWarning`; it is a direct subclass of
+`XCausalWarning`, separate from `ComponentWarning` and `BootstrapWarning`.
+
 ## Usage recipes
 
 Snippets below that use `X`, `T`, `Y` without redefining them assume the
@@ -180,7 +192,7 @@ X, T, Y = load_lalonde(binarize_y="median")
 
 # outcome_type="auto" detects binary Y, materialises the binary
 # default pool (8 components targeting the risk difference), and
-# fits. ATE is on the risk-difference scale, in [-1, 1].
+# fits. ATE is on the risk-difference scale; estimates can exceed [-1, 1].
 ens = CausalEnsemble()
 ens.fit(X, T, Y, random_state=42)
 

@@ -7,11 +7,13 @@ Hierarchy::
         ├── ComponentWarning         (operating-pool concerns)
         │   ├── ComponentFailureWarning   (component fit/predict failures)
         │   └── ComponentExclusionWarning (configuration mismatches)
-        └── BootstrapWarning         (bootstrap inference reliability)
+        ├── BootstrapWarning         (bootstrap inference reliability)
+        └── RiskDifferenceWarning    (binary ensemble estimates outside [-1, 1])
 
 The classes are re-exported from :mod:`xcausal`; import as
 ``from xcausal import XCausalWarning, ComponentWarning,
-ComponentFailureWarning, ComponentExclusionWarning, BootstrapWarning``.
+ComponentFailureWarning, ComponentExclusionWarning, BootstrapWarning,
+RiskDifferenceWarning``.
 
 The hierarchy lets users filter at the appropriate granularity::
 
@@ -33,6 +35,9 @@ The hierarchy lets users filter at the appropriate granularity::
     # Catch only bootstrap inference reliability concerns
     warnings.filterwarnings("error", category=mc.BootstrapWarning)
 
+    # Catch only binary ensemble point estimates outside [-1, 1]
+    warnings.filterwarnings("error", category=mc.RiskDifferenceWarning)
+
 Classes inherit from :class:`Warning` directly (not :class:`RuntimeWarning`)
 so that xcausal-scoped policies are independent of broad
 :class:`RuntimeWarning` behaviour applied by the user or other libraries
@@ -46,8 +51,10 @@ class XCausalWarning(Warning):
     """Umbrella class for all xcausal-emitted warnings.
 
     Currently subclassed into :class:`ComponentWarning` (operating-pool
-    concerns: fit failures and configuration exclusions) and
-    :class:`BootstrapWarning` (bootstrap inference reliability concerns).
+    concerns: fit failures and configuration exclusions),
+    :class:`BootstrapWarning` (bootstrap inference reliability concerns),
+    and :class:`RiskDifferenceWarning` (binary ensemble point estimates
+    outside the risk-difference bounds).
     Filtering at this level catches any xcausal-emitted warning
     regardless of subcategory.
     """
@@ -61,7 +68,7 @@ class ComponentWarning(XCausalWarning):
     failures) and :class:`ComponentExclusionWarning` (configuration
     mismatches). Filtering at this level catches any partial-pool surprise
     regardless of cause, but does NOT catch :class:`BootstrapWarning`
-    (which is about inference reliability, not pool composition).
+    or :class:`RiskDifferenceWarning`.
     """
 
 
@@ -101,4 +108,21 @@ class BootstrapWarning(XCausalWarning):
     (numerical issues on the resample, weight-optimisation failure,
     etc.), so this category is distinct from :class:`ComponentWarning`
     — it is about *inference reliability*, not pool composition.
+    """
+
+
+class RiskDifferenceWarning(XCausalWarning):
+    """A binary-outcome ensemble point estimate is outside [-1, 1].
+
+    Applies to every aggregation strategy when the fitted outcome type
+    resolves to ``"binary"``. Checks ensemble ATE/CATE estimates only;
+    component estimates, confidence intervals, and bootstrap replicates
+    are not checked. Estimates are returned unchanged, without clipping.
+    Absence of this warning does not imply a bounded estimator.
+
+    ``cate()`` emits at most one warning, counting out-of-range entries.
+    ``ate()`` also checks the ensemble CATE for agreement and supervised
+    strategies, so it can emit a CATE warning and an ATE warning.
+    ``bootstrap()`` checks the original-fit estimates at most once each
+    for ATE and CATE, regardless of the number of replicates.
     """

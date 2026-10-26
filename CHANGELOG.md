@@ -6,6 +6,8 @@ tagged.
 
 ## Unreleased
 
+- **Warn when binary ensemble point estimates leave [-1, 1].** The new public `RiskDifferenceWarning`, a direct subclass of `XCausalWarning`, applies to every aggregation strategy. `cate()` reports the count of out-of-range entries; `ate()` checks the ensemble ATE and, for agreement/supervised strategies, the ensemble CATE used to compute it. `bootstrap()` checks the original-fit ATE and CATE at most once each, without warnings for individual replicates or CI endpoints. Warnings point to the caller. Point estimates, fitted weights, bootstrap distributions, and confidence intervals remain unchanged; no clipping or constraints are added. Existing warning-as-error filters on `XCausalWarning` also catch this new category.
+
 ## 0.8.0 — 2026-10-21
 
 - **Renamed the project to XCausal.** The PyPI distribution and import package are now `xcausal`. `MetaCausalWarning` is now `XCausalWarning`, and the parallelism sentinel is `XCAUSAL_INNER_WORKER` (`xcausal.adapters.INNER_WORKER_ENV`). This is the first `xcausal` release; it continues the code previously published as `metacausal` 0.7.4. Entries below keep the wording from those releases.

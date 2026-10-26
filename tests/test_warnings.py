@@ -7,7 +7,8 @@ The hierarchy is:
         ├── ComponentWarning
         │   ├── ComponentFailureWarning   (component fit/predict failures)
         │   └── ComponentExclusionWarning (configuration mismatches)
-        └── BootstrapWarning              (bootstrap inference reliability)
+        ├── BootstrapWarning              (bootstrap inference reliability)
+        └── RiskDifferenceWarning         (binary ensemble bounds)
 
 These tests verify (a) the inheritance is correct, (b) each substantive
 emission site emits the right subclass (centralised contract guard so
@@ -32,6 +33,7 @@ from xcausal import (
     ComponentFailureWarning,
     ComponentWarning,
     Median,
+    RiskDifferenceWarning,
     XCausalWarning,
 )
 from xcausal.adapters.generic import GenericATEAdapter, GenericCATEAdapter
@@ -54,6 +56,14 @@ class TestHierarchy:
     def test_bootstrap_subclasses_xcausal(self):
         assert issubclass(BootstrapWarning, XCausalWarning)
 
+    def test_risk_difference_directly_subclasses_xcausal(self):
+        assert RiskDifferenceWarning.__bases__ == (XCausalWarning,)
+
+    def test_risk_difference_exported(self):
+        import xcausal
+
+        assert "RiskDifferenceWarning" in xcausal.__all__
+
     def test_failure_subclasses_component(self):
         assert issubclass(ComponentFailureWarning, ComponentWarning)
 
@@ -66,7 +76,7 @@ class TestHierarchy:
         # catch xcausal warnings, and vice versa.
         for cls in (
             XCausalWarning, ComponentWarning, ComponentFailureWarning,
-            ComponentExclusionWarning, BootstrapWarning,
+            ComponentExclusionWarning, BootstrapWarning, RiskDifferenceWarning,
         ):
             assert not issubclass(cls, RuntimeWarning), (
                 f"{cls.__name__} must not subclass RuntimeWarning"
@@ -81,6 +91,11 @@ class TestHierarchy:
         # are about inference reliability, not pool composition.
         assert not issubclass(ComponentWarning, BootstrapWarning)
         assert not issubclass(BootstrapWarning, ComponentWarning)
+
+    @pytest.mark.parametrize("category", [ComponentWarning, BootstrapWarning, UserWarning])
+    def test_risk_difference_is_disjoint(self, category):
+        assert not issubclass(RiskDifferenceWarning, category)
+        assert not issubclass(category, RiskDifferenceWarning)
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +212,34 @@ class _GoodCATE:
 
 class TestFilterScoping:
     """Verify each level of the hierarchy filters at the right granularity."""
+
+    @pytest.mark.parametrize("category", [XCausalWarning, RiskDifferenceWarning])
+    def test_filter_catches_risk_difference(self, category):
+        ens = CausalEnsemble(methods=[GenericATEAdapter(
+            lambda X, T, Y: 1.5, supported_outcome_types=("binary",),
+        )])
+        X, T, Y = _dummy_data()
+        ens.fit(X, T, (Y > 0).astype(int))
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", category=category)
+            with pytest.raises(RiskDifferenceWarning, match="Ensemble ATE"):
+                ens.ate()
+
+    @pytest.mark.parametrize("category", [
+        ComponentWarning, BootstrapWarning, RuntimeWarning, UserWarning,
+    ])
+    def test_other_filters_do_not_catch_risk_difference(self, category):
+        ens = CausalEnsemble(methods=[GenericATEAdapter(
+            lambda X, T, Y: 1.5, supported_outcome_types=("binary",),
+        )])
+        X, T, Y = _dummy_data()
+        ens.fit(X, T, (Y > 0).astype(int))
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            warnings.filterwarnings("error", category=category)
+            assert ens.ate().ate == 1.5
+        assert len(caught) == 1
+        assert caught[0].category is RiskDifferenceWarning
 
     def test_filter_xcausal_catches_failure(self):
         # XCausalWarning is the umbrella; escalating at this level
