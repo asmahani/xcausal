@@ -6,6 +6,30 @@ tagged.
 
 ## Unreleased
 
+- **Corrected subsample confidence intervals with the finite-population scale.**
+  `method="subsample"` now uses `sqrt(m/(n-m))`, with the actual integer
+  subsample size `m` and training size `n`, for ensemble ATE/CATE intervals
+  and reconstructed component intervals, summaries, and forest plots.
+  The default fraction remains 0.5; at exact half-sampling interval widths
+  increase by `sqrt(2)`. Nonparametric bootstrap intervals, point estimates,
+  fitted weights, seeds, resampling, and raw replicate arrays are unchanged.
+  The correction is motivated by regular asymptotic linearity; it does not
+  establish general CATE coverage or validity for nonregular aggregation
+  or every inferential target under treatment stratification.
+
+  Subsample interval reconstruction now requires integer `subsample_m` and
+  `n_train` metadata satisfying `1 <= subsample_m < n_train`, rather than
+  silently falling back to scale 1 for missing metadata. Nonparametric
+  results still need no size metadata.
+
+  **Saved results:** older pickled `BootstrapResult` objects retain their
+  stored ATE/CATE endpoints, while `ci_at()`, component summaries, and
+  component forest-plot intervals use the installed code. Recompute stored
+  endpoints consistently before using these objects with the new code.
+  With valid size metadata, an old stored endpoint can be transformed as
+  `theta + sqrt(n/(n-m)) * (endpoint - theta)`, using the corresponding
+  original-fit ATE or CATE as `theta`. No model refits are needed solely
+  for this correction; retain provenance for the original results.
 - **Clarified the `ate()` docstring.** Agreement and supervised strategies return the mean of fitted ensemble CATE predictions over the evaluation covariates; AIPW pseudo-outcomes, when used, serve as training targets for supervised weights. Pointwise strategies aggregate component ATE estimates directly. This is a documentation-only change with no change to returned estimates.
 - **Warn when binary ensemble point estimates leave [-1, 1].** The new public `RiskDifferenceWarning`, a direct subclass of `XCausalWarning`, applies to every aggregation strategy. `cate()` reports the count of out-of-range entries; `ate()` checks the ensemble ATE and, for agreement/supervised strategies, the ensemble CATE used to compute it. `bootstrap()` checks the original-fit ATE and CATE at most once each, without warnings for individual replicates or CI endpoints. Warnings point to the caller. Point estimates, fitted weights, bootstrap distributions, and confidence intervals remain unchanged; no clipping or constraints are added. Existing warning-as-error filters on `XCausalWarning` also catch this new category.
 

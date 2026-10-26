@@ -151,6 +151,8 @@ def test_bootstrap_repr_and_summary_render_confidence_level():
         alpha=0.10,
         aggregation="Median",
         method="subsample",
+        subsample_m=50,
+        n_train=100,
     )
 
     rendered = repr(boot)
@@ -245,6 +247,8 @@ class TestSummaryStrReplDisplay:
             alpha=0.10,
             aggregation="Median",
             method="subsample",
+            subsample_m=50,
+            n_train=100,
         )
         s = boot.summary()
         assert repr(s) == str(s)

@@ -26,6 +26,7 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 
 from tests.test_supervised_bootstrap import _fitted_supervised_ensemble
 from tests.test_supervised_fit import UniformSupervisedStrategy, _dgp
+from tests.test_subsample_bootstrap import _fitted_cate_ensemble
 
 
 class _HeterogeneousCateAdapter:
@@ -154,8 +155,8 @@ class TestComponentAteSummary:
             boot.component_ate_summary()
 
     def test_nonparametric_point_estimate_source_is_immaterial(self):
-        """With scale=1.0 (method='nonparametric', the default), Politis-
-        Romano centering algebraically cancels out -- centering on the
+        """With scale=1.0 (method='nonparametric', the default),
+        centering algebraically cancels out -- centering on the
         original-fit ate vs. the bootstrap mean gives identical bounds.
         This mirrors the "centering/recentering cancels out" property
         ensemble.bootstrap() already relies on for its own ATE CI."""
@@ -173,7 +174,7 @@ class TestComponentAteSummary:
         assert row["hi"] == pytest.approx(np.percentile(dist, 97.5))
 
     def test_subsample_point_estimate_source_changes_bounds(self):
-        """Under method='subsample' (scale != 1.0), centering on the
+        """Under subsampling away from half-sampling (scale != 1), centering on the
         original-fit ate (via component_ate_estimates) vs. the bootstrap
         mean gives genuinely different bounds -- this is where the
         component_ate_estimates fallback in component_ate_summary()
@@ -196,7 +197,7 @@ class TestComponentAteSummary:
         assert row_with["lo"] != pytest.approx(row_without["lo"])
         assert row_with["hi"] != pytest.approx(row_without["hi"])
 
-        scale = np.sqrt(50 / 200)
+        scale = np.sqrt(50 / (200 - 50))
         expected_lo = 10.0 + scale * np.percentile(dist - 10.0, 2.5)
         assert row_with["lo"] == pytest.approx(expected_lo)
 
@@ -214,9 +215,10 @@ class TestComponentAteSummary:
             assert row["lo"] == pytest.approx(expected_lo)
             assert row["hi"] == pytest.approx(expected_hi)
 
-    def test_applies_subsample_scale_correction(self):
+    @pytest.mark.parametrize("m", [50, 100, 150])
+    def test_applies_subsample_scale_correction(self, m):
         """Regression test: under method='subsample', component CIs must
-        apply the sqrt(m/n) scale correction, matching the ensemble-level
+        apply the sqrt(m/(n-m)) scale correction, matching the ensemble-level
         CI convention -- previously this method used plain percentile
         regardless of scheme."""
         rng = np.random.default_rng(0)
@@ -227,19 +229,20 @@ class TestComponentAteSummary:
             cate=None, cate_ci_lower=None, cate_ci_upper=None,
             component_boot_ates={"m0": dist},
             component_ate_estimates={"m0": ComponentAteEstimate(ate=0.55)},
-            method="subsample", subsample_m=50, n_train=200,
+            method="subsample", subsample_m=m, n_train=200,
         )
         df = boot.component_ate_summary()
         row = df.iloc[0]
-        scale = np.sqrt(50 / 200)
+        scale = np.sqrt(m / (200 - m))
         centered = dist - 0.55
         expected_lo = 0.55 + scale * np.percentile(centered, 2.5)
         expected_hi = 0.55 + scale * np.percentile(centered, 97.5)
         assert row["lo"] == pytest.approx(expected_lo)
         assert row["hi"] == pytest.approx(expected_hi)
-        # Sanity: the scale correction must actually change the bounds
-        # relative to plain percentile (scale != 1.0 here).
-        assert row["lo"] != pytest.approx(np.percentile(dist, 2.5))
+        if m == 100:
+            assert row["lo"] == pytest.approx(np.percentile(dist, 2.5))
+        else:
+            assert row["lo"] != pytest.approx(np.percentile(dist, 2.5))
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +251,45 @@ class TestComponentAteSummary:
 
 
 class TestForest:
+    @pytest.mark.parametrize("fraction", [0.25, 0.5, 0.75])
+    def test_subsample_plot_intervals_match_corrected_result(self, fraction):
+        ens, grid = _fitted_cate_ensemble(n=80)
+        boot = ens.bootstrap(
+            grid, n_boot=20, random_state=0, method="subsample",
+            subsample_size=fraction,
+        )
+        ax = forest(boot, order="input")
+        try:
+            # Check the actual drawn segments, including the stored ensemble
+            # interval and the component intervals reconstructed by summary().
+            segments = ax.collections[0].get_segments()
+            for segment, (name, dist) in zip(segments, boot.component_boot_ates.items(), strict=True):
+                point = boot.component_ate_estimates[name].ate
+                np.testing.assert_allclose(
+                    segment[:, 0], boot.ci_at(dist=dist, point_estimate=point),
+                )
+            np.testing.assert_allclose(ax.collections[1].get_segments()[0][:, 0], boot.ci_at())
+        finally:
+            plt.close(ax.figure)
+
+        x = np.arange(len(grid))
+        ax = cate_profile(boot, x, xlabel="evaluation row")
+        try:
+            vertices = ax.collections[0].get_paths()[0].vertices
+            for i in x:
+                drawn = vertices[vertices[:, 0] == i, 1]
+                np.testing.assert_allclose(
+                    [drawn.min(), drawn.max()],
+                    boot.ci_at(dist=boot.boot_cates[:, i], point_estimate=boot.cate[i]),
+                )
+        finally:
+            plt.close(ax.figure)
+
+    def test_subsample_forest_rejects_missing_metadata(self, boot_result_with_components):
+        boot_result_with_components.method = "subsample"
+        with pytest.raises(ValueError, match="integer subsample_m and n_train"):
+            forest(boot_result_with_components)
+
     def test_returns_axes(self, boot_result_with_components):
         ax = forest(boot_result_with_components)
         assert isinstance(ax, plt.Axes)

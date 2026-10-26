@@ -35,6 +35,7 @@ from xcausal.aggregation import (
 from xcausal.aggregation.weights import (
     BootstrapResult,
     EnsembleWeights,
+    _bootstrap_scale,
     _scaled_percentile_ci,
 )
 from xcausal.estimators import (
@@ -1214,17 +1215,34 @@ class CausalEnsemble:
                 Eliminates duplicates so any downstream cross-fit (the
                 supervised pipeline's outer loop, every adapter's internal
                 cross-fit, supervised aggregation CV) stays honest. CIs
-                use the Politis–Romano (1994) scaled-percentile correction:
-                ``θ̂ + sqrt(m/n) * percentile(T_m - θ̂)``.
+                use subsampling with finite-population correction:
+                ``θ̂ + sqrt(m/(n-m)) * percentile(T_m - θ̂)``. Here ``m``
+                is the resolved integer subsample size and ``n`` is the
+                training size, independent of the evaluation grid size.
             subsample_size: Subsample size when ``method="subsample"``.
                 Float in (0, 1) is interpreted as a fraction of n; int is
                 interpreted as m directly. Must satisfy 1 ≤ m < n. The
-                default 0.5 (m = n/2) is a practical compromise between
-                preserving sample size for the components' nuisance fits
-                and giving the subsampling correction enough room to
-                work; smaller m is justified theoretically but increases
-                replicate failure rates and finite-sample bias of the
-                components. Ignored when ``method="nonparametric"``.
+                default 0.5 retains about half the observations for fitting
+                while leaving substantial subsample variation. This is a
+                practical choice, not a general coverage guarantee. At
+                exact half-sampling the CI multiplier is 1; above half it
+                exceeds 1. Rounding can make half-sampling inexact for
+                odd n. Ignored when ``method="nonparametric"``.
+
+        Notes:
+            The finite-population correction is motivated by regular
+            asymptotic linearity: centered subsample variance is approximately
+            proportional to ``1/m - 1/n``, whereas full-sample variance is
+            proportional to ``1/n``. See `Wu (1990)
+            <https://doi.org/10.1214/aos/1176347759>`_ and `Politis, Romano,
+            and Wolf (2000), Remark 2
+            <https://doi.org/10.1080/03610920008832576>`_.
+
+            Although subsamples are stratified on treatment, the multiplier
+            uses the simple-random-sample factor, not a within-stratum
+            correction. Applying it to CATE does not establish general CATE
+            coverage or validity for nonregular aggregation. Without-replacement
+            subsampling does not become the nonparametric bootstrap at m=n.
 
         Returns:
             BootstrapResult with ATE and CATE point estimates, CIs, and
@@ -1356,14 +1374,10 @@ class CausalEnsemble:
             for name, a in comp_ates.items():
                 boot_comp.setdefault(name, []).append(a)
 
-        # CI construction. Centered scaled-percentile (Politis–Romano):
-        # CI = θ̂ + scale * percentile(T_b - θ̂), with scale = sqrt(m/n).
-        # When method="nonparametric" we have m == n, so scale == 1 and the
-        # expression reduces algebraically to the standard percentile
-        # bootstrap — the centering/recentering cancels out. Shared with
-        # BootstrapResult.ci_at() via _scaled_percentile_ci so there is one
-        # implementation of the formula.
-        scale = float(np.sqrt(m / n)) if method == "subsample" else 1.0
+        # Subsample CIs use sqrt(m/(n-m)); the nonparametric bootstrap has
+        # its own scale of 1. Share both scale and centered-percentile
+        # arithmetic with BootstrapResult's interval reconstruction.
+        scale = _bootstrap_scale(method, m, n)
         theta_hat = float(ate_result.ate)
         ate_ci_lower, ate_ci_upper = _scaled_percentile_ci(
             boot_ates, theta_hat, alpha, scale
@@ -1385,7 +1399,7 @@ class CausalEnsemble:
             cate_ci_upper = None
 
         # Containment is governed by the same condition for both schemes: the
-        # sqrt(m/n) scaling changes the CI width but never moves an endpoint
+        # positive scaling changes the CI width but never moves an endpoint
         # across theta_hat, so theta_hat ∈ CI iff it lies in the central
         # 1−alpha percentile range of the replicate ATEs. Flag exclusion under
         # either scheme; only the remedy text is scheme-specific.

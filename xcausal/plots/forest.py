@@ -30,8 +30,9 @@ def forest(
     """Forest plot of per-component and ensemble ATEs.
 
     Each component row shows the bootstrap mean ATE and its
-    ``1 - alpha`` CI (lower/upper bounds from percentiles of
-    ``component_boot_ates[name]``). The ensemble row uses
+    ``1 - alpha`` CI from ``component_ate_summary()``. Component intervals
+    use the original-fit ATE as their center when available and apply
+    finite-population scaling for subsampled results. The ensemble row uses
     ``boot_result.ate`` and ``boot_result.ate_ci_{lower,upper}`` and is
     always drawn at the top of the plot.
 

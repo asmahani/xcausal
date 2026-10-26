@@ -22,6 +22,37 @@ if TYPE_CHECKING:
     from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
+def _bootstrap_scale(method: str, subsample_m: int | None, n_train: int) -> float:
+    """Return the CI scale for the resampling scheme, validating size metadata.
+
+    For regular asymptotically linear estimators, centered subsample
+    variance is approximately proportional to ``1/m - 1/n``. Scaling by
+    ``sqrt(m / (n - m))`` matches the full-sample variance proportional
+    to ``1/n``. Nonparametric bootstrap draws have their own scale of 1.
+    """
+    if method == "nonparametric":
+        return 1.0
+    if method != "subsample":
+        raise ValueError(
+            f"method must be 'nonparametric' or 'subsample'; got {method!r}"
+        )
+    error = (
+        "method='subsample' requires integer subsample_m and n_train "
+        "satisfying 1 <= subsample_m < n_train; "
+        f"got subsample_m={subsample_m!r}, n_train={n_train!r}."
+    )
+    if any(
+        isinstance(size, (bool, np.bool_))
+        or not isinstance(size, (int, np.integer))
+        for size in (subsample_m, n_train)
+    ):
+        raise ValueError(error)
+    m, n = int(subsample_m), int(n_train)
+    if not 1 <= m < n:
+        raise ValueError(error)
+    return float(np.sqrt(m / (n - m)))
+
+
 def _scaled_percentile_ci(
     dist: np.ndarray,
     point_estimate: float | np.ndarray,
@@ -29,11 +60,13 @@ def _scaled_percentile_ci(
     scale: float = 1.0,
     axis: int | None = None,
 ) -> tuple[float, float] | tuple[np.ndarray, np.ndarray]:
-    """Politis-Romano (1994) scaled-percentile CI:
+    """Centered scaled-percentile CI:
     ``point_estimate + scale * percentile(dist - point_estimate, level)``.
 
-    ``scale=1.0`` (the nonparametric case, m == n) makes this algebraically
-    reduce to the standard percentile bootstrap. Shared by
+    ``scale=1.0`` gives the raw percentiles of the supplied distribution.
+    This occurs for the nonparametric bootstrap and for subsampling at
+    exactly half the training size, although their resampling schemes
+    and replicate distributions differ. Shared by
     :meth:`CausalEnsemble.bootstrap`'s internal ATE/CATE CI construction
     and :meth:`BootstrapResult.ci_at`, so there is one implementation of
     the formula rather than one per call site.
@@ -148,11 +181,12 @@ class BootstrapResult:
         method: Bootstrap resampling scheme — ``"nonparametric"`` (n-out-of-n
             with replacement, the standard Efron bootstrap) or
             ``"subsample"`` (m-out-of-n without replacement, T-stratified;
-            CIs use the Politis–Romano scaled-percentile correction).
+            CIs use subsampling with finite-population correction).
         subsample_m: Subsample size used when ``method="subsample"``;
-            ``None`` for nonparametric.
+            ``None`` for nonparametric. Subsample CI reconstruction requires
+            integer sizes satisfying ``1 <= subsample_m < n_train``.
         n_train: Original training sample size. Recorded so ``scale``
-            and :meth:`ci_at` can reconstruct the Politis-Romano scale
+            and :meth:`ci_at` can reconstruct the finite-population scale
             factor after the fact, without needing ``n`` passed back in.
     """
 
@@ -193,12 +227,20 @@ class BootstrapResult:
 
     @property
     def scale(self) -> float:
-        """Politis-Romano scale factor: ``sqrt(subsample_m / n_train)`` for
-        ``method="subsample"``, ``1.0`` otherwise (including when
-        ``n_train`` wasn't recorded, e.g. a hand-built ``BootstrapResult``)."""
-        if self.method == "subsample" and self.subsample_m is not None and self.n_train > 0:
-            return float(np.sqrt(self.subsample_m / self.n_train))
-        return 1.0
+        """CI scale: ``sqrt(subsample_m / (n_train - subsample_m))`` for
+        subsampling with finite-population correction, and ``1.0`` for
+        the nonparametric bootstrap, which needs no size metadata.
+
+        The subsample scale can exceed 1 when more than half the training
+        observations are retained. It is motivated by regular asymptotic
+        linearity, not a general coverage guarantee for CATE or nonregular
+        aggregation; see :meth:`CausalEnsemble.bootstrap`.
+
+        Raises:
+            ValueError: If the method is unknown, or a subsampled result
+                lacks integer sizes satisfying ``1 <= subsample_m < n_train``.
+        """
+        return _bootstrap_scale(self.method, self.subsample_m, self.n_train)
 
     def ci_at(
         self,
@@ -210,11 +252,16 @@ class BootstrapResult:
         """Confidence interval at an arbitrary level, reusing this bootstrap
         run's already-computed replicate distribution(s) -- no re-fit needed.
 
-        By default, reproduces the ensemble's own ATE CI (at ``level``
+        By default, reconstructs the ensemble's ATE CI (at ``level``
         instead of the level fixed when ``bootstrap()`` was called), using
-        the same Politis-Romano scaled-percentile formula (with the
+        the same centered-percentile formula (with the finite-population
         ``method="subsample"`` scale correction applied automatically via
         :attr:`scale`).
+
+        Reconstruction uses the installed code. Subsample results saved
+        before the finite-population correction retain their old stored
+        ATE/CATE endpoints; recompute those endpoints consistently before
+        mixing them with reconstructed intervals, summaries, or plots.
 
         Pass ``dist`` to get a CI for any other 1-d bootstrap distribution
         carried by this result -- e.g. ``component_boot_ates["BCF"]`` for a
@@ -241,7 +288,8 @@ class BootstrapResult:
 
         Raises:
             ValueError: If exactly one of ``dist``/``point_estimate`` is
-                given.
+                given, the method is unknown, or a subsampled result lacks
+                valid integer ``subsample_m`` and ``n_train`` metadata.
         """
         if (dist is None) != (point_estimate is None):
             raise ValueError(
