@@ -6,6 +6,7 @@ tagged.
 
 ## Unreleased
 
+- **Clarified the `ate()` docstring.** Agreement and supervised strategies return the mean of fitted ensemble CATE predictions over the evaluation covariates; AIPW pseudo-outcomes, when used, serve as training targets for supervised weights. Pointwise strategies aggregate component ATE estimates directly. This is a documentation-only change with no change to returned estimates.
 - **Warn when binary ensemble point estimates leave [-1, 1].** The new public `RiskDifferenceWarning`, a direct subclass of `XCausalWarning`, applies to every aggregation strategy. `cate()` reports the count of out-of-range entries; `ate()` checks the ensemble ATE and, for agreement/supervised strategies, the ensemble CATE used to compute it. `bootstrap()` checks the original-fit ATE and CATE at most once each, without warnings for individual replicates or CI endpoints. Warnings point to the caller. Point estimates, fitted weights, bootstrap distributions, and confidence intervals remain unchanged; no clipping or constraints are added. Existing warning-as-error filters on `XCausalWarning` also catch this new category.
 
 ## 0.8.0 — 2026-10-21

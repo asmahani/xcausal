@@ -951,6 +951,16 @@ class CausalEnsemble:
     ) -> AteEstimate:
         """Compute the ensemble ATE from fitted component models.
 
+        For agreement and supervised strategies, the returned ATE is the
+        arithmetic mean of the fitted ensemble CATE predictions over the
+        rows of ``X``, using the training covariates when ``X=None``. AIPW
+        pseudo-outcomes, when used to fit supervised weights, are training
+        targets; their average is not the returned ensemble ATE.
+
+        Pointwise strategies aggregate the component ATE estimates directly.
+        These semantics follow the selected ``aggregation`` override, or
+        the strategy from ``fit()`` when no override is supplied.
+
         Parameters:
             X: Covariate matrix for ATE evaluation. If ``None``, uses
                 the training covariates from ``fit()``.
