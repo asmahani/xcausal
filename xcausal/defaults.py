@@ -49,21 +49,19 @@ def default_methods(outcome_type: str = "continuous") -> list:
     Requires: econml, doubleml, causalml, stochtree, sklearn.
     Install via ``pip install xcausal[all]`` for the full default library.
 
-    For ``outcome_type="continuous"`` (default) this returns nine components
-    spanning four supported frameworks::
+    The continuous pool spans EconML, DoubleML, CausalML, and stochtree.
+    The binary pool targets the **risk-difference** estimand and uses
+    probability-capable outcome models, with regressors in independent
+    effect-model slots. The generated :doc:`component reference </components>`
+    lists the exact rosters, counts, model recipes, internal folds, and
+    clipping settings, including inherited upstream defaults.
 
-        DoubleML:   DoubleMLIRM, DoubleMLPLR
-        EconML:     CausalForestDML, DRLearner, TLearner, XLearner
-        CausalML:   BaseRRegressor (R-Learner), TMLELearner
-        stochtree:  Bayesian Causal Forest
-
-    For ``outcome_type="binary"`` the pool targets the **risk-difference**
-    estimand and contains seven components::
-
-        DoubleML:   DoubleMLIRM (classifier ml_g)
-        EconML:     CausalForestDML, DRLearner (both with discrete_outcome)
-        CausalML:   BaseTClassifier, BaseXClassifier,
-                    BaseRClassifier, TMLELearner
+    Configure member models through ``CausalEnsemble(methods=[...])``.
+    EconML DR's ``model_final`` defaults to an unregularized linear effect
+    stage, while X's ``cate_models=None`` inherits fresh clones of the
+    outcome-model family. CausalML R's ``effect_learner`` is independent
+    of its outcome and propensity learners. Supervised aggregation's
+    nuisance arguments configure only weight learning.
 
     Components dropped on binary:
 
@@ -162,7 +160,7 @@ def default_methods(outcome_type: str = "continuous") -> list:
 
 
 def _default_methods_binary() -> list:
-    """Build the seven-component binary-outcome default pool.
+    """Build the binary-outcome default pool.
 
     Effect-side learners (``effect_learner``, ``treatment_effect_learner``,
     TMLE's outcome learner) stay regressors even on binary Y: the

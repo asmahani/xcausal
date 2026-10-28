@@ -164,6 +164,13 @@ class SupervisedStrategy(AggregationStrategy):
         Use this to inject BART-based nuisance, a single pooled outcome model
         with T as a feature, or any other custom nuisance pipeline.
         ``None`` (default) uses the standard two-model cross-fitted procedure.
+
+    Notes
+    -----
+    These nuisance models, trimming settings, and splits configure the
+    aggregation loss. They do not configure any member estimator's internal
+    outcome, propensity, or effect models; pass configured members through
+    ``CausalEnsemble(methods=[...])``. See :doc:`/components`.
     """
 
     strategy_family: ClassVar[str] = "supervised"

@@ -197,8 +197,11 @@ class CausalEnsemble:
             - Lists/tuples of 2 or 3 callables, auto-wrapped as
               :class:`GenericCATEAdapter`
 
-            If ``None``, uses :func:`default_methods` — and which pool
-            it returns depends on the outcome type detected at fit time.
+            If ``None``, uses :func:`~xcausal.defaults.default_methods`;
+            its pool depends on the outcome type detected at fit time.
+            Configure each member's outcome, propensity, and effect models
+            on the supplied estimator. See :doc:`/components` for resolved
+            defaults and independent effect-model examples.
         aggregation: Aggregation strategy. Either a string alias
             (``"median"``, ``"mean"``, ``"trimmed_mean"``, ``"cba"``) or a
             strategy object implementing

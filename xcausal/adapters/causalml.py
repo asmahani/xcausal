@@ -68,9 +68,7 @@ class CausalMLAdapter:
         the propensity model during ``fit()``, seeds TMLE's internal
         outcome learner, runs ``estimate_ate`` once, and caches the
         ``(ate, lb, ub)`` triple; ``ate()`` is then a constant-time lookup.
-        Caching is necessary because TMLE's ``estimate_ate`` refits its
-        own outcome learner (with an un-seeded validation split) per call,
-        which makes successive calls with identical inputs drift. Provide
+        Caching avoids refitting its outcome learner on every ATE call. Provide
         a ``propensity_model`` at construction time to customise the
         propensity estimator.
 
@@ -81,19 +79,21 @@ class CausalMLAdapter:
     name : str or None
         Display name. Defaults to the class name of the wrapped model.
     propensity_model : sklearn classifier or None
-        Used only for ``TMLELearner``. Fitted during ``fit()`` to produce
-        the propensity scores ``p`` that TMLE requires. Default:
-        ``LogisticRegression(max_iter=500)``. Ignored for all other
-        CausalML estimators (they handle propensity internally or accept it
-        optionally via their own ``p`` parameter).
+        For ``TMLELearner``, fitted during ``fit()`` to produce the required
+        propensity scores ``p``; if omitted, uses
+        ``LogisticRegression(max_iter=500)``. For other estimators whose
+        ``fit()`` accepts ``p`` (such as ``BaseXClassifier``), an explicitly
+        supplied model is fitted and its probabilities are passed through
+        fitting and prediction. This adapter adds no clipping or cross-fitting
+        to those scores. Default pools supply their own HGB propensity model.
 
     Notes
     -----
     **Seed / reproducibility:** CausalML has no uniform ``random_state``
-    in ``fit()``. The adapter passes ``random_state`` as ``seed`` for
-    ``BaseDRRegressor`` and ``BaseRRegressor`` (the only classes that accept
-    it). For all other classes, set ``random_state`` at model construction
-    time. CausalEnsemble forwards seeds but the wrapped model may ignore them.
+    in ``fit()``. The adapter seeds the wrapped estimator, its nested
+    sklearn estimators, and stored CV splitters where supported. It also
+    passes ``random_state`` as ``seed`` when the upstream ``fit()`` accepts
+    that argument. Opaque upstream randomness may require additional controls.
 
     **Deep-copy requirement:** the wrapped model must be deep-copyable for
     bootstrap resampling and cross-fitting. Standard sklearn-backed CausalML
@@ -204,9 +204,9 @@ class CausalMLAdapter:
     ) -> None:
         """Fit the wrapped CausalML model.
 
-        For ``TMLELearner``: fits the propensity model on ``(X, T)`` and
-        caches the scores. TMLE itself has no ``fit()`` — all its work
-        happens in ``ate()`` via ``estimate_ate()``.
+        For ``TMLELearner``: fits the propensity model on ``(X, T)``, runs
+        the upstream ``estimate_ate()``, and caches its ATE and interval.
+        TMLE itself has no ``fit()``.
 
         For all other classes: deep-copies the model, maps our
         ``(X, T, Y)`` convention to CausalML's ``(X, treatment, y)``

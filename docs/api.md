@@ -45,6 +45,24 @@ and outcome-type detection.
    xcausal.RiskDifferenceWarning
 ```
 
+## `xcausal.defaults`
+
+Factories for the shipped component pools and their outcome/propensity models.
+See [Default components and model configuration](components.md) for generated
+rosters, resolved settings, and independent member effect-model examples.
+Supervised aggregation's nuisance arguments configure its weight-learning
+loss; member models are configured through `CausalEnsemble(methods=[...])`.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+   :nosignatures:
+
+   xcausal.defaults.default_methods
+   xcausal.defaults.default_outcome_model
+   xcausal.defaults.default_propensity_model
+```
+
 ## `xcausal.aggregation`
 
 Aggregation strategies (combine component ATE/CATE predictions into an

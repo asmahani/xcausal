@@ -54,7 +54,7 @@ from xcausal.datasets import load_lalonde
 
 X, T, Y = load_lalonde()
 
-# Default ensemble: nine estimators spanning EconML, DoubleML,
+# Default ensemble: estimators spanning EconML, DoubleML,
 # CausalML, and stochtree, aggregated by pointwise median.
 ens = CausalEnsemble()
 ens.fit(X, T, Y, random_state=42)
@@ -106,7 +106,19 @@ XCausal supports two outcome types:
 
 Detection happens at fit time: `CausalEnsemble().fit(X, T, Y)` inspects Y, picks the right pool from `default_methods`, and routes nuisance estimation through `predict_proba` for binary outcomes. To force an interpretation, pass `outcome_type="continuous"` or `outcome_type="binary"` at construction. Multi-class / nominal and survival outcomes are out of scope; encoding-as-multiple-binary or a dedicated survival library is the recommended path.
 
-The default binary pool (8 components) drops `DoubleMLPLR`, EconML S/T/X-Learners, the `BaseRRegressor`, and stochtree BCF — all of which either lack a binary-capable code path in their upstream library or would silently fit a linear-probability model — and substitutes the CausalML classifier siblings (`BaseSClassifier`, `BaseTClassifier`, `BaseXClassifier`, `BaseRClassifier`). `DoubleMLIRM`, `CausalForestDML`, `DRLearner`, and `TMLELearner` remain.
+The default binary pool uses probability-capable outcome models and regressor
+effect stages where the effect is learned separately. It substitutes CausalML
+classifier meta-learners for the continuous pool's T/X/R learners and excludes
+components without a supported binary-outcome path. The generated
+[component reference](docs/components.md) lists the exact membership, counts,
+ATE/CATE capabilities, and resolved model configurations for both pools.
+
+Member outcome, propensity, and effect models are configured through
+`CausalEnsemble(methods=[...])`. For example, DRLearner's `model_final`,
+XLearner's `cate_models`, and an R-learner's `effect_learner` configure their
+effect stages independently of outcome models. Supervised aggregation's
+`outcome_model` and `propensity_model` configure its weight-learning loss.
+See the [independent configuration example](docs/components.md#configure-effect-models-independently).
 
 The population risk difference lies in [-1, 1], but fitted ATE/CATE estimates
 can exceed those bounds under any aggregation strategy. On a resolved binary
@@ -191,7 +203,7 @@ from xcausal.datasets import load_lalonde
 X, T, Y = load_lalonde(binarize_y="median")
 
 # outcome_type="auto" detects binary Y, materialises the binary
-# default pool (8 components targeting the risk difference), and
+# default pool targeting the risk difference, and
 # fits. ATE is on the risk-difference scale; estimates can exceed [-1, 1].
 ens = CausalEnsemble()
 ens.fit(X, T, Y, random_state=42)
@@ -313,7 +325,7 @@ This exclusive-outer-parallelism design also covers the estimators XCausal wraps
 
 The outer process (your main script) keeps the platform-default BLAS thread count, which is fine on macOS and Windows. On Linux, where joblib's loky backend can occasionally deadlock at fork time when the parent's BLAS pool is already running threads, defensive users may want to set the standard thread env vars (`OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `NUMEXPR_NUM_THREADS=1`, `VECLIB_MAXIMUM_THREADS=1`) before invoking Python. This package's own test suite (`tests/conftest.py`) sets these automatically, so contributors running `pytest` locally do not need the shell prefix.
 
-> **Known issue — `CausalForestDML` under heavy bootstrap parallelism.** EconML's generalized-random-forest tree builder (`econml.tree`) intermittently segfaults (SIGSEGV/SIGBUS) under the repeated component refits that `bootstrap()`/`estimate(..., n_boot=...)` perform on the default pool — a latent out-of-bounds bug in the upstream library, triggered probabilistically and more often at higher `n_jobs`/`n_boot` ([py-why/EconML#470](https://github.com/py-why/EconML/issues/470), open and unfixed as of EconML 0.16.0). The other eight default components are unaffected. If you hit it, drop `CausalForestDML` from the pool:
+> **Known issue — `CausalForestDML` under heavy bootstrap parallelism.** EconML's generalized-random-forest tree builder (`econml.tree`) intermittently segfaults (SIGSEGV/SIGBUS) under the repeated component refits that `bootstrap()`/`estimate(..., n_boot=...)` perform on the default pool — a latent out-of-bounds bug in the upstream library, triggered probabilistically and more often at higher `n_jobs`/`n_boot` ([py-why/EconML#470](https://github.com/py-why/EconML/issues/470), open and unfixed as of EconML 0.16.0). The remaining default components are unaffected. If you hit it, drop `CausalForestDML` from the pool:
 >
 > ```python
 > from xcausal import CausalEnsemble

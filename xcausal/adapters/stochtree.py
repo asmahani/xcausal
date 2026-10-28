@@ -38,12 +38,16 @@ class StochtreeAdapter:
             ``"adaptive_coding"``, ``"standardize"``, ``"num_chains"``, etc.
         prognostic_forest_params: Optional dict passed to
             ``BCFModel.sample(prognostic_forest_params=...)``. Common keys:
-            ``"num_trees"`` (default 250), ``"alpha"``, ``"beta"``,
+            ``"num_trees"``, ``"alpha"``, ``"beta"``,
             ``"min_samples_leaf"``, ``"max_depth"``.
         treatment_effect_forest_params: Optional dict passed to
             ``BCFModel.sample(treatment_effect_forest_params=...)``. Common
-            keys: ``"num_trees"`` (default 50), ``"alpha"``, ``"beta"``,
+            keys: ``"num_trees"``, ``"alpha"``, ``"beta"``,
             ``"min_samples_leaf"``, ``"max_depth"``.
+
+    Unspecified native forest parameters are resolved by the installed
+    stochtree version. See :doc:`/components` for the documentation baseline
+    and the model-role and preprocessing details.
 
     Examples:
         Small ``num_gfr``/``num_burnin``/``num_mcmc`` below keep this a
