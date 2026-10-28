@@ -11,8 +11,8 @@ authors:
   - family-names: "Mahani"
     given-names: "Alireza S."
     email: alireza.s.mahani@gmail.com
-version: 0.8.0
-date-released: "2026-10-21"
+version: 0.9.0
+date-released: "2026-10-28"
 repository-code: "https://github.com/asmahani/xcausal"
 url: "https://asmahani.github.io/xcausal/"
 license: MIT
