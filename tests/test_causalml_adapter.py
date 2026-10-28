@@ -16,6 +16,7 @@ from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 # CausalML imports
 from causalml.inference.meta import (
     BaseDRRegressor,
+    BaseRClassifier,
     BaseRRegressor,
     BaseSRegressor,
     BaseTRegressor,
@@ -622,6 +623,53 @@ class TestForceSerialUnderParallelism:
         adapter = CausalMLAdapter(template)
         adapter.fit(X, T, Y_cont, random_state=9)
         assert adapter._fitted_model.cv_n_jobs == -1
+
+
+class TestRLearnerPropensityCustomization:
+    """A user-supplied propensity model is the one ``fit()`` trains, for
+    both the regressor and the classifier, not CausalML's ElasticNet
+    default and not a stale model left on the instance.
+    """
+
+    @pytest.mark.parametrize("outcome", ["continuous", "binary"])
+    def test_user_supplied_propensity_is_fitted_and_reproducible(self, outcome):
+        X, T, Y_cont, Y_bin = _dgp(n=160, seed=2)
+        Y = Y_cont if outcome == "continuous" else Y_bin
+
+        def make():
+            propensity = LogisticRegression(max_iter=300)
+            if outcome == "continuous":
+                model = BaseRRegressor(
+                    outcome_learner=_fast_hgb_r(),
+                    effect_learner=_fast_hgb_r(),
+                    propensity_learner=propensity,
+                    n_fold=2,
+                )
+            else:
+                model = BaseRClassifier(
+                    outcome_learner=_fast_hgb_c(),
+                    effect_learner=_fast_hgb_r(),
+                    propensity_learner=propensity,
+                    n_fold=2,
+                )
+            model.cv_n_jobs = 1
+            return model
+
+        def fit():
+            adapter = CausalMLAdapter(make())
+            adapter.fit(X, T, Y, random_state=11)
+            return adapter
+
+        first = fit()
+        fitted = first._fitted_model
+        assert isinstance(fitted.propensity_learner, LogisticRegression)
+        assert fitted.propensity_model
+        for model in fitted.propensity_model.values():
+            assert model is fitted.propensity_learner
+        assert not hasattr(first._model.propensity_learner, "classes_")
+
+        second = fit()
+        np.testing.assert_array_equal(first.cate(X).cate, second.cate(X).cate)
 
 
 # ---------------------------------------------------------------------------

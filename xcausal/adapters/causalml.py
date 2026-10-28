@@ -1,4 +1,4 @@
-"""Adapter for CausalML estimators (Uber, causalml>=0.14)."""
+"""Adapter for CausalML estimators (Uber, causalml>=0.18.0)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from xcausal._parallel import INNER_WORKER_ENV, force_serial
+from xcausal._parallel import INNER_WORKER_ENV, _iter_estimator_tree, force_serial
 from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 # ---------------------------------------------------------------------------
@@ -441,10 +441,11 @@ class CausalMLAdapter:
         Walks ``vars(model)`` (instance ``__dict__``, insertion-ordered)
         and sets ``random_state`` on each attribute that exposes one —
         nuisance learners, effect learners, propensity learners, CV
-        splitters. Each gets an independent seed drawn sequentially from
-        a single RNG deterministically derived from ``random_state``,
-        so two fresh deep-copies of the same template seeded with the
-        same ``random_state`` end up in matching states.
+        splitters — including items of a list or tuple and estimators
+        nested in a ``Pipeline``. Each gets an independent seed drawn
+        sequentially from a single RNG deterministically derived from
+        ``random_state``, so two fresh deep-copies of the same template
+        seeded with the same ``random_state`` end up in matching states.
 
         Introspection is necessary because causalml stores learners
         under different internal names per class (``model``,
@@ -456,15 +457,17 @@ class CausalMLAdapter:
         every one of these. See #16.
         """
         rng = np.random.default_rng(random_state)
-        if hasattr(model, "random_state"):
-            model.random_state = int(rng.integers(0, 2**31 - 1))
+
+        def _assign(est) -> None:
+            if hasattr(est, "random_state"):
+                est.random_state = int(rng.integers(0, 2**31 - 1))
+
+        _assign(model)
         for attr_value in vars(model).values():
-            if isinstance(attr_value, list):
-                for item in attr_value:
-                    if hasattr(item, "random_state"):
-                        item.random_state = int(rng.integers(0, 2**31 - 1))
-            elif hasattr(attr_value, "random_state"):
-                attr_value.random_state = int(rng.integers(0, 2**31 - 1))
+            if attr_value is None:
+                continue
+            for node in _iter_estimator_tree(attr_value):
+                _assign(node)
 
     @staticmethod
     def _force_serial(model: Any) -> None:

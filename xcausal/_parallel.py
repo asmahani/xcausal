@@ -45,6 +45,51 @@ def _pin_threads() -> None:
     os.environ[INNER_WORKER_ENV] = "1"
 
 
+def _is_pipeline_steps(steps: Any) -> bool:
+    """True when *steps* is a scikit-learn ``Pipeline.steps`` sequence.
+
+    Steps are ``(name, estimator)`` pairs. The name check keeps an
+    unrelated sequence attribute from being treated as a composite.
+    """
+    if not isinstance(steps, (list, tuple)) or not steps:
+        return False
+    head = steps[0]
+    return isinstance(head, tuple) and len(head) >= 2 and isinstance(head[0], str)
+
+
+def _iter_estimator_tree(obj: Any):
+    """Yield *obj* and estimators nested under it, each once.
+
+    Descends into lists and tuples, which is how EconML accepts
+    ``models`` and ``cate_models`` (one estimator, or one per treatment
+    arm including control). Also descends into ``Pipeline.steps``: a
+    pipeline does not carry ``random_state`` or ``n_jobs`` itself, so a
+    nested forest would otherwise keep the user's unseeded, fully
+    parallel settings.
+    """
+    seen: set[int] = set()
+
+    def walk(node: Any):
+        if node is None or isinstance(node, (str, bytes, bytearray)):
+            return
+        if isinstance(node, (bool, int, float, complex)):
+            return
+        ident = id(node)
+        if ident in seen:
+            return
+        seen.add(ident)
+        yield node
+        if isinstance(node, (list, tuple)):
+            for item in node:
+                yield from walk(item)
+            return
+        steps = getattr(node, "steps", None)
+        if _is_pipeline_steps(steps):
+            yield from walk(steps)
+
+    yield from walk(obj)
+
+
 def force_serial(
     model: Any,
     attr_name: str = "n_jobs",
@@ -62,11 +107,13 @@ def force_serial(
 
     If *sub_attrs* is given, only those named attributes on *model* are
     inspected (a library-specific fixed set of known nested-model slots,
-    e.g. EconML's ``model_y``/``model_t``/...). If omitted, every value in
-    ``vars(model)`` is inspected instead, for libraries that store nested
-    learners under varying names per class (e.g. CausalML's
-    ``model_mu``/``model_tau``/``model_p`` vs. ``model_c``/``model_t``).
-    Either way, list-valued attributes are walked item-by-item.
+    e.g. EconML's ``model_y``/``model_t``/``cate_models``). If omitted,
+    every value in ``vars(model)`` is inspected instead, for libraries
+    that store nested learners under varying names per class (e.g.
+    CausalML's ``model_mu``/``model_tau``/``model_p`` vs.
+    ``model_c``/``model_t``). List- and tuple-valued slots are walked
+    item-by-item, and a ``Pipeline`` is walked through to its step
+    estimators.
     """
     if hasattr(model, attr_name):
         setattr(model, attr_name, 1)
@@ -79,12 +126,9 @@ def force_serial(
     for sub in candidates:
         if sub is None:
             continue
-        if isinstance(sub, list):
-            for item in sub:
-                if hasattr(item, attr_name):
-                    setattr(item, attr_name, 1)
-        elif hasattr(sub, attr_name):
-            setattr(sub, attr_name, 1)
+        for node in _iter_estimator_tree(sub):
+            if hasattr(node, attr_name):
+                setattr(node, attr_name, 1)
 
 
 def parallel_map(

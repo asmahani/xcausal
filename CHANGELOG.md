@@ -6,6 +6,11 @@ tagged.
 
 ## Unreleased
 
+- **Seed and limit workers inside explicit X-Learner effect models.** `EconMLAdapter` now includes `cate_models` when it propagates `random_state` and, inside an XCausal worker, pins `n_jobs` to 1. The slot may be one estimator, a list, or a tuple. A scikit-learn `Pipeline` is walked through to the step that owns those settings, so a nested random forest is seeded and limited to one job with the rest of the component. Outside a worker the user's `n_jobs` is left unchanged. Default X-Learners keep `cate_models=None`; their seeded predictions are unchanged.
+- **Require CausalML 0.18.0 and drop the R-learner `model_p` workaround.** The `causalml` and `all` extras are now `causalml>=0.18.0,<0.18.1`. CausalML 0.18.0 assigns `model_p` from `propensity_learner` before fitting ([uber/causalml#937](https://github.com/uber/causalml/pull/937)), so the propensity model that is trained is the one configured on `BaseRRegressor` or `BaseRClassifier`, including a replacement on a component returned by `default_methods()`. The extra `model_p` estimator set at construction was only needed for the 0.16 and 0.17 initialization order, where that separate instance was what `fit()` actually trained.
+
+  On CausalML 0.18.0, removing the extra instance does not change seeded default R-learner predictions: `fit()` was already training `propensity_learner`. The manuscript replication pin is still CausalML 0.17.0. There the workaround's `model_p` was a second gradient-boosting classifier and received a different adapter seed than `propensity_learner`. Holding every other seed fixed, that propensity-seed swap moves Lalonde CATE by up to about 4770. Those 0.17 results are not interchangeable with 0.18 fits. Moving the manuscript pin would mean regenerating the affected results, not relabeling them.
+
 - **Corrected subsample confidence intervals with the finite-population scale.**
   `method="subsample"` now uses `sqrt(m/(n-m))`, with the actual integer
   subsample size `m` and training size `n`, for ensemble ATE/CATE intervals

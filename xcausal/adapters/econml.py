@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from xcausal._parallel import INNER_WORKER_ENV, force_serial
+from xcausal._parallel import INNER_WORKER_ENV, _iter_estimator_tree, force_serial
 from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
@@ -130,10 +130,13 @@ class EconMLAdapter:
             )
 
     # Attributes on EconML estimators that hold nested sub-models.
+    # ``cate_models`` is X-Learner's effect stage. It is independent of
+    # ``models`` and is ``None`` when the effect stage clones the outcome
+    # models at fit time.
     _SUB_MODEL_ATTRS = (
         "model_y", "model_t", "model_final",
         "model_regression", "model_propensity",
-        "models", "overall_model", "propensity_model",
+        "models", "cate_models", "overall_model", "propensity_model",
     )
 
     @staticmethod
@@ -281,20 +284,26 @@ class EconMLAdapter:
 
     @classmethod
     def _seed_model(cls, model, random_state: int) -> None:
-        """Set random_state on *model* and its nested sub-estimators."""
+        """Set random_state on *model* and its nested sub-estimators.
+
+        Slots in :attr:`_SUB_MODEL_ATTRS` may hold one estimator or a
+        list/tuple of estimators. A ``Pipeline`` is walked through to the
+        step that owns ``random_state`` (for example a random forest),
+        which a pipeline object does not expose itself.
+        """
         rng = np.random.default_rng(random_state)
-        if hasattr(model, "random_state"):
-            model.random_state = int(rng.integers(0, 2**32 - 1))
+
+        def _assign(est) -> None:
+            if hasattr(est, "random_state"):
+                est.random_state = int(rng.integers(0, 2**32 - 1))
+
+        _assign(model)
         for attr in cls._SUB_MODEL_ATTRS:
             sub = getattr(model, attr, None)
             if sub is None:
                 continue
-            if isinstance(sub, list):
-                for item in sub:
-                    if hasattr(item, "random_state"):
-                        item.random_state = int(rng.integers(0, 2**32 - 1))
-            elif hasattr(sub, "random_state"):
-                sub.random_state = int(rng.integers(0, 2**32 - 1))
+            for node in _iter_estimator_tree(sub):
+                _assign(node)
 
     @classmethod
     def _force_serial(cls, model) -> None:
@@ -305,9 +314,11 @@ class EconMLAdapter:
         joblib-parallel component -- EconML's ``CausalForestDML``, or a
         user-supplied nuisance learner such as a ``RandomForest`` with
         ``n_jobs=-1`` -- from nesting a second worker pool inside the outer
-        one.         Mirrors :meth:`_seed_model`'s traversal so list-valued slots
-        (e.g. ``TLearner.models``) are covered too. Delegates the actual
-        pinning to the shared :func:`~xcausal._parallel.force_serial`
-        helper, scoped to EconML's known nested-model slots.
+        one. Mirrors :meth:`_seed_model`'s traversal, so list- and
+        tuple-valued slots (``TLearner.models``, ``XLearner.cate_models``)
+        and a random forest nested in a ``Pipeline`` are covered too.
+        Delegates the actual pinning to the shared
+        :func:`~xcausal._parallel.force_serial` helper, scoped to EconML's
+        known nested-model slots.
         """
         force_serial(model, "n_jobs", cls._SUB_MODEL_ATTRS)
