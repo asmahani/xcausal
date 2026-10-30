@@ -1,4 +1,4 @@
-"""Tests for metacausal.outcome_type.infer_outcome_type."""
+"""Tests for xcausal.outcome_type.infer_outcome_type."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from metacausal import infer_outcome_type
+from xcausal import infer_outcome_type
 
 
 class TestBinaryDetection:

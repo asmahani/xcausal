@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 import pytest
 
-from metacausal.aggregation.splitting import CrossFitSplit, FoldSpec, TrainAvgSplit
+from xcausal.aggregation.splitting import CrossFitSplit, FoldSpec, TrainAvgSplit
 
 
 # ---------------------------------------------------------------------------
@@ -257,4 +257,4 @@ class TestTrainAvgSplit:
 
 
 def test_importable_from_aggregation_package():
-    from metacausal.aggregation import CrossFitSplit, FoldSpec, TrainAvgSplit  # noqa: F401
+    from xcausal.aggregation import CrossFitSplit, FoldSpec, TrainAvgSplit  # noqa: F401

@@ -8,5 +8,6 @@
 :hidden:
 
 api
+components
 CHANGELOG
 ```

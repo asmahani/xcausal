@@ -3,8 +3,8 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "metacausal"
-version = "0.7.4"
+name = "xcausal"
+version = "0.9.0"
 description = "Cross-framework causal-ML ensembles for ATE and CATE with full-pipeline bootstrap inference"
 readme = "README.md"
 license = "MIT"
@@ -33,11 +33,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/asmahani/metacausal"
-Repository = "https://github.com/asmahani/metacausal"
-Issues = "https://github.com/asmahani/metacausal/issues"
-Changelog = "https://github.com/asmahani/metacausal/blob/main/CHANGELOG.md"
-Documentation = "https://asmahani.github.io/metacausal/"
+Homepage = "https://github.com/asmahani/xcausal"
+Repository = "https://github.com/asmahani/xcausal"
+Issues = "https://github.com/asmahani/xcausal/issues"
+Changelog = "https://github.com/asmahani/xcausal/blob/main/CHANGELOG.md"
+Documentation = "https://asmahani.github.io/xcausal/"
 
 [project.optional-dependencies]
 # Floors and caps both anchored to the exact patch validated by CI on
@@ -52,13 +52,13 @@ Documentation = "https://asmahani.github.io/metacausal/"
 econml = ["econml>=0.16.0,<0.17.1"]
 doubleml = ["doubleml>=0.11.2,<0.11.5"]
 stochtree = ["stochtree>=0.4.2,<0.4.6"]
-causalml = ["causalml>=0.16.0,<0.18.1"]
+causalml = ["causalml>=0.18.0,<0.18.1"]
 plots = ["matplotlib>=3.5"]
 all = [
     "econml>=0.16.0,<0.17.1",
     "doubleml>=0.11.2,<0.11.5",
     "stochtree>=0.4.2,<0.4.6",
-    "causalml>=0.16.0,<0.18.1",
+    "causalml>=0.18.0,<0.18.1",
     "matplotlib>=3.5",
 ]
 dev = [
@@ -79,10 +79,10 @@ docs = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["metacausal*"]
+include = ["xcausal*"]
 
 [tool.setuptools.package-data]
-"metacausal.datasets" = ["*.csv"]
+"xcausal.datasets" = ["*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 from scipy.stats import kendalltau
 
-from metacausal import CBA, AgreementStrategy, CausalEnsemble, EnsembleWeights
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CBA, AgreementStrategy, CausalEnsemble, EnsembleWeights
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +324,7 @@ class TestCausalEnsembleCBA:
         ens.fit(X, T, Y)
         result = ens.cate(X)
 
-        from metacausal import CateEstimate
+        from xcausal import CateEstimate
         assert isinstance(result, CateEstimate)
         assert result.ensemble_weights is not None
         assert result.ensemble_weights.method == "cba"
@@ -382,7 +382,7 @@ class TestCausalEnsembleCBA:
         ]
         ens = CausalEnsemble(methods=methods, aggregation="cba")
         ens.fit(X, T, Y)
-        from metacausal import BootstrapResult
+        from xcausal import BootstrapResult
         result = ens.bootstrap(n_boot=10, random_state=0)
 
         assert isinstance(result, BootstrapResult)

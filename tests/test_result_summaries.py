@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation.weights import BootstrapResult, EnsembleWeights
-from metacausal.estimators import (
+from xcausal import CausalEnsemble
+from xcausal.aggregation.weights import BootstrapResult, EnsembleWeights
+from xcausal.estimators import (
     AteEstimate,
     CateEstimate,
     ComponentAteEstimate,
@@ -151,6 +151,8 @@ def test_bootstrap_repr_and_summary_render_confidence_level():
         alpha=0.10,
         aggregation="Median",
         method="subsample",
+        subsample_m=50,
+        n_train=100,
     )
 
     rendered = repr(boot)
@@ -184,7 +186,7 @@ def test_causalensemble_repr_and_summary_pre_and_post_fit():
     default_summary = default_ens.summary()
 
     assert default_repr.startswith("CausalEnsemble(")
-    assert "<metacausal.ensemble.CausalEnsemble object at" not in default_repr
+    assert "<xcausal.ensemble.CausalEnsemble object at" not in default_repr
     assert "default pool deferred to fit()" in default_repr
     assert "Components: default pool deferred to fit()" in default_summary
 
@@ -245,6 +247,8 @@ class TestSummaryStrReplDisplay:
             alpha=0.10,
             aggregation="Median",
             method="subsample",
+            subsample_m=50,
+            n_train=100,
         )
         s = boot.summary()
         assert repr(s) == str(s)

@@ -2,23 +2,26 @@
 
 The subsample bootstrap draws m-out-of-n without replacement (T-stratified),
 eliminating duplicate units so any downstream cross-fit stays honest. CIs
-use the Politis–Romano scaled-percentile correction.
+use subsampling with finite-population correction.
 """
 
 from __future__ import annotations
 
 import warnings
+from itertools import combinations, product
 
 import numpy as np
 import pytest
 
-from metacausal import (
+from xcausal import (
     BootstrapResult,
     BootstrapWarning,
     CausalEnsemble,
     ComponentAteEstimate,
+    GenericCATEAdapter,
 )
-from metacausal.ensemble import _resolve_subsample_size, _stratified_subsample
+from xcausal.aggregation.weights import _bootstrap_scale
+from xcausal.ensemble import _resolve_subsample_size, _stratified_subsample
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +197,7 @@ class _UniqueCountBiasedATE:
 
     A nonparametric (size-n, with-replacement) resample contains only ~63%
     distinct rows, so every replicate's ATE shifts above the full-sample θ̂
-    (which sees all n distinct rows). This pushes the Politis–Romano CI
+    (which sees all n distinct rows). This pushes the percentile CI
     entirely off θ̂ and triggers the CI-exclusion warning even though m == n,
     exercising the nonparametric branch of the diagnostic.
     """
@@ -234,6 +237,22 @@ def _data(n: int = 200, seed: int = 0):
     T = rng.binomial(1, 0.5, size=n).astype(float)
     Y = X[:, 0] + T * 0.5 + rng.normal(scale=0.1, size=n)
     return X, T, Y
+
+
+def _fitted_cate_ensemble(n=81):
+    """Data-dependent components for checking scalar and vector intervals."""
+    methods = [
+        GenericCATEAdapter(
+            lambda X, T, Y, **kwargs: float(Y.mean()),
+            lambda state, X: state + X[:, 0], name="a",
+        ),
+        GenericCATEAdapter(
+            lambda X, T, Y, **kwargs: float(Y.mean()),
+            lambda state, X: 0.5 * state + X[:, 1], name="b",
+        ),
+    ]
+    X, T, Y = _data(n=n)
+    return CausalEnsemble(methods).fit(X, T, Y, random_state=7), X[:7]
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +329,7 @@ class TestSubsampleBootstrap:
 
     def test_ci_excluded_warning_fires(self):
         """When components are systematically biased at smaller n, the
-        Politis–Romano CI ends up entirely on one side of the full-sample
+        scaled-percentile CI ends up entirely on one side of the full-sample
         point estimate; the package must surface this with a warning.
         """
         ens = CausalEnsemble([_SizeBiasedATE(scale=10.0)])
@@ -469,7 +488,7 @@ class TestSubsampleBootstrap:
 
 
 # ---------------------------------------------------------------------------
-# n_train / scale — needed to reconstruct the Politis-Romano scale factor
+# n_train / scale — needed to reconstruct the finite-population scale factor
 # after the fact (BootstrapResult.ci_at, component_ate_summary).
 # ---------------------------------------------------------------------------
 
@@ -487,11 +506,28 @@ class TestScale:
         result = ens.bootstrap(n_boot=10, random_state=0)
         assert result.n_train == 200
 
-    def test_scale_matches_sqrt_m_over_n_for_subsample(self):
+    @pytest.mark.parametrize("m,expected", [
+        (1, np.sqrt(1 / 199)), (50, np.sqrt(1 / 3)), (100, 1.0),
+        (150, np.sqrt(3)), (199, np.sqrt(199)),
+    ])
+    def test_finite_population_scale_across_subsample_sizes(self, m, expected):
         ens = CausalEnsemble([_MockATE(0.5, "a"), _MockATE(0.6, "b")])
         ens.fit(*_data(n=200))
-        result = ens.bootstrap(n_boot=10, random_state=0, method="subsample")
-        assert result.scale == pytest.approx(np.sqrt(100 / 200))
+        result = ens.bootstrap(
+            n_boot=5, random_state=0, method="subsample", subsample_size=m,
+        )
+        assert result.scale == pytest.approx(expected)
+
+    @pytest.mark.parametrize("n,m", [(201, 100), (203, 102)])
+    def test_half_fraction_uses_actual_integer_size_for_odd_n(self, n, m):
+        ens = CausalEnsemble([_MockATE(0.5, "a")]).fit(*_data(n=n))
+        result = ens.bootstrap(n_boot=3, random_state=0, method="subsample")
+        assert result.subsample_m == m
+        assert result.scale == pytest.approx(np.sqrt(m / (n - m)))
+        assert result.scale != 1.0
+
+    def test_numpy_integer_metadata(self):
+        assert _bootstrap_scale("subsample", np.int64(3), np.uint64(4)) == pytest.approx(np.sqrt(3))
 
     def test_scale_is_one_for_nonparametric(self):
         ens = CausalEnsemble([_MockATE(0.5, "a"), _MockATE(0.6, "b")])
@@ -499,16 +535,76 @@ class TestScale:
         result = ens.bootstrap(n_boot=10, random_state=0)
         assert result.scale == 1.0
 
-    def test_scale_is_one_when_n_train_unset(self):
-        """Hand-built BootstrapResult (n_train defaults to 0) falls back to
-        scale=1.0 rather than dividing by zero."""
+    @pytest.mark.parametrize("m,n", [
+        (None, 10), (2, None), (2, 0), (0, 10), (-1, 10), (1, -10),
+        (10, 10), (11, 10), (True, 10), (np.bool_(True), 10), (1, True),
+        (1, np.bool_(True)), (2.0, 10), (2.5, 10), (2, 10.0), (2, 10.5),
+        (np.nan, 10), (2, np.nan), (np.inf, 10), (2, np.inf), ("2", 10),
+    ])
+    def test_invalid_subsample_metadata_rejected_on_reconstruction(self, m, n):
         result = BootstrapResult(
             ate=0.5, ate_ci_lower=0.1, ate_ci_upper=0.9,
             boot_ates=np.array([0.4, 0.5, 0.6]),
             cate=None, cate_ci_lower=None, cate_ci_upper=None,
-            method="subsample", subsample_m=50,
+            component_boot_ates={"a": np.array([0.4, 0.5, 0.6])},
+            method="subsample", subsample_m=m, n_train=n,
+        )
+        # Construction/loading still works; using the metadata for a CI
+        # must fail clearly rather than returning an unscaled interval.
+        for reconstruct in (
+            lambda: result.scale, result.ci_at,
+            result.component_ate_summary, result.summary,
+        ):
+            with pytest.raises(ValueError, match="integer subsample_m and n_train"):
+                reconstruct()
+
+    def test_missing_size_metadata_rejected(self):
+        result = BootstrapResult(
+            ate=0.5, ate_ci_lower=0.1, ate_ci_upper=0.9,
+            boot_ates=np.array([0.4, 0.5, 0.6]),
+            cate=None, cate_ci_lower=None, cate_ci_upper=None,
+            method="subsample",
+        )
+        with pytest.raises(ValueError, match="1 <= subsample_m < n_train"):
+            result.ci_at()
+
+    @pytest.mark.parametrize("m,n", [(None, 0), (50, None), (np.nan, np.inf)])
+    def test_nonparametric_needs_no_valid_size_metadata(self, m, n):
+        result = BootstrapResult(
+            ate=0.5, ate_ci_lower=0.1, ate_ci_upper=0.9,
+            boot_ates=np.array([0.4, 0.5, 0.6]),
+            cate=None, cate_ci_lower=None, cate_ci_upper=None,
+            subsample_m=m, n_train=n,
         )
         assert result.scale == 1.0
+        np.testing.assert_allclose(result.ci_at(), np.percentile(result.boot_ates, [2.5, 97.5]))
+
+    def test_unknown_method_rejected(self):
+        with pytest.raises(ValueError, match="method must be"):
+            _bootstrap_scale("unknown", 2, 4)
+
+
+@pytest.mark.parametrize("retained_per_arm", [1, 2, 3])
+def test_exact_subsample_variance_matches_difference_in_means_target(retained_per_arm):
+    """Enumerate balanced draws; this check derives its target from data,
+    independently of the CI scale formula.
+    """
+    control = np.array([-3.0, -1.0, 2.0, 4.0])
+    treated = np.array([0.0, 2.0, 5.0, 9.0])
+    point = treated.mean() - control.mean()
+    target = treated.var(ddof=1) / len(treated) + control.var(ddof=1) / len(control)
+    draws = np.array([
+        np.mean(t) - np.mean(c)
+        for t, c in product(
+            combinations(treated, retained_per_arm),
+            combinations(control, retained_per_arm),
+        )
+    ])
+    scale = _bootstrap_scale("subsample", 2 * retained_per_arm, len(treated) + len(control))
+    assert draws.mean() == pytest.approx(point)
+    # All equally likely subsamples are present, so use population variance
+    # for their distribution. Arm variances above use the unbiased ddof=1.
+    assert np.var(scale * (draws - point), ddof=0) == pytest.approx(target)
 
 
 # ---------------------------------------------------------------------------
@@ -542,7 +638,7 @@ class TestCiAt:
         lo70, hi70 = result.ci_at(0.70)
         assert (hi70 - lo70) <= (hi95 - lo95)
 
-    def test_component_dist_matches_manual_politis_romano(self):
+    def test_component_dist_matches_centered_percentiles(self):
         """ci_at() on a per-component distribution reproduces the same
         formula the ensemble's own ate_ci uses, applied to that component."""
         ens = CausalEnsemble([_MockATE(0.5, "a", noise=0.1), _MockATE(0.6, "b", noise=0.1)])
@@ -559,6 +655,39 @@ class TestCiAt:
         expected_hi = point + result.scale * np.percentile(centered, 100 * (1 - alpha / 2))
         assert lo == pytest.approx(expected_lo)
         assert hi == pytest.approx(expected_hi)
+
+    @pytest.mark.parametrize("method", ["nonparametric", "subsample"])
+    @pytest.mark.parametrize("fraction", [0.25, 0.5, 0.75])
+    def test_ate_cate_component_intervals_share_training_size_scale(self, method, fraction):
+        ens, grid = _fitted_cate_ensemble()
+        result = ens.bootstrap(
+            grid, n_boot=20, random_state=0, method=method,
+            subsample_size=fraction, alpha=0.10,
+        )
+        assert result.n_train == 81
+        assert len(grid) == 7
+        assert result.n_failed == 0
+        m = round(fraction * 81)
+        scale = np.sqrt(m / (81 - m)) if method == "subsample" else 1.0
+        levels = [5, 95]
+        expected_ate = result.ate + scale * (np.percentile(result.boot_ates, levels) - result.ate)
+        np.testing.assert_allclose([result.ate_ci_lower, result.ate_ci_upper], expected_ate)
+        np.testing.assert_allclose(result.ci_at(), expected_ate)
+        expected_cate = result.cate + scale * (
+            np.percentile(result.boot_cates, levels, axis=0) - result.cate
+        )
+        np.testing.assert_allclose([result.cate_ci_lower, result.cate_ci_upper], expected_cate)
+        for i in range(len(grid)):
+            np.testing.assert_allclose(
+                result.ci_at(dist=result.boot_cates[:, i], point_estimate=result.cate[i]),
+                expected_cate[:, i],
+            )
+        summary = result.component_ate_summary().set_index("name")
+        for name, dist in result.component_boot_ates.items():
+            point = result.component_ate_estimates[name].ate
+            expected = point + scale * (np.percentile(dist, levels) - point)
+            np.testing.assert_allclose(summary.loc[name, ["lo", "hi"]], expected)
+            assert summary.loc[name, "mean"] == pytest.approx(dist.mean())
 
     def test_dist_without_point_estimate_raises(self):
         ens = CausalEnsemble([_MockATE(0.5, "a"), _MockATE(0.6, "b")])

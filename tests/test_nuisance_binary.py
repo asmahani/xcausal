@@ -15,17 +15,17 @@ from sklearn.ensemble import (
 )
 from sklearn.linear_model import LogisticRegression
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CrossFitSplit
-from metacausal.aggregation.causal_stacking import CausalStacking
-from metacausal.aggregation.nuisance import (
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CrossFitSplit
+from xcausal.aggregation.causal_stacking import CausalStacking
+from xcausal.aggregation.nuisance import (
     NuisanceEstimates,
     dr_pseudo_outcome,
     fit_nuisance,
 )
-from metacausal.aggregation.q_aggregation import QAggregation
-from metacausal.aggregation.r_stacking import RStacking
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal.aggregation.q_aggregation import QAggregation
+from xcausal.aggregation.r_stacking import RStacking
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 # ---------------------------------------------------------------------------

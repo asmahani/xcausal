@@ -9,13 +9,14 @@ import pytest
 from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import CausalEnsemble, CausalMLAdapter
-from metacausal.adapters.causalml import _is_causalml, _is_tmle, _is_uplift
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal import CausalEnsemble, CausalMLAdapter
+from xcausal.adapters.causalml import _is_causalml, _is_tmle, _is_uplift
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 # CausalML imports
 from causalml.inference.meta import (
     BaseDRRegressor,
+    BaseRClassifier,
     BaseRRegressor,
     BaseSRegressor,
     BaseTRegressor,
@@ -588,7 +589,7 @@ class TestPropensityThreading:
 
 
 class TestForceSerialUnderParallelism:
-    """Inside a MetaCausal worker (``INNER_WORKER_ENV`` set), the adapter
+    """Inside a XCausal worker (``INNER_WORKER_ENV`` set), the adapter
     pins the wrapped R-Learner's ``cv_n_jobs`` to 1 so its internal
     ``cross_val_predict`` pool cannot nest inside the outer worker. Outside
     a worker, ``cv_n_jobs`` is left untouched. Mirrors
@@ -602,7 +603,7 @@ class TestForceSerialUnderParallelism:
         assert model.cv_n_jobs == 1
 
     def test_fit_pins_cv_n_jobs_inside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.setenv(INNER_WORKER_ENV, "1")
         X, T, Y_cont, _ = _dgp(n=100, seed=8)
@@ -614,7 +615,7 @@ class TestForceSerialUnderParallelism:
         assert adapter._model.cv_n_jobs == -1
 
     def test_fit_leaves_cv_n_jobs_outside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.delenv(INNER_WORKER_ENV, raising=False)
         X, T, Y_cont, _ = _dgp(n=100, seed=9)
@@ -624,14 +625,61 @@ class TestForceSerialUnderParallelism:
         assert adapter._fitted_model.cv_n_jobs == -1
 
 
+class TestRLearnerPropensityCustomization:
+    """A user-supplied propensity model is the one ``fit()`` trains, for
+    both the regressor and the classifier, not CausalML's ElasticNet
+    default and not a stale model left on the instance.
+    """
+
+    @pytest.mark.parametrize("outcome", ["continuous", "binary"])
+    def test_user_supplied_propensity_is_fitted_and_reproducible(self, outcome):
+        X, T, Y_cont, Y_bin = _dgp(n=160, seed=2)
+        Y = Y_cont if outcome == "continuous" else Y_bin
+
+        def make():
+            propensity = LogisticRegression(max_iter=300)
+            if outcome == "continuous":
+                model = BaseRRegressor(
+                    outcome_learner=_fast_hgb_r(),
+                    effect_learner=_fast_hgb_r(),
+                    propensity_learner=propensity,
+                    n_fold=2,
+                )
+            else:
+                model = BaseRClassifier(
+                    outcome_learner=_fast_hgb_c(),
+                    effect_learner=_fast_hgb_r(),
+                    propensity_learner=propensity,
+                    n_fold=2,
+                )
+            model.cv_n_jobs = 1
+            return model
+
+        def fit():
+            adapter = CausalMLAdapter(make())
+            adapter.fit(X, T, Y, random_state=11)
+            return adapter
+
+        first = fit()
+        fitted = first._fitted_model
+        assert isinstance(fitted.propensity_learner, LogisticRegression)
+        assert fitted.propensity_model
+        for model in fitted.propensity_model.values():
+            assert model is fitted.propensity_learner
+        assert not hasattr(first._model.propensity_learner, "classes_")
+
+        second = fit()
+        np.testing.assert_array_equal(first.cate(X).cate, second.cate(X).cate)
+
+
 # ---------------------------------------------------------------------------
 # Importability
 # ---------------------------------------------------------------------------
 
 
 def test_importable_from_top_level():
-    from metacausal import CausalMLAdapter  # noqa: F401
+    from xcausal import CausalMLAdapter  # noqa: F401
 
 
 def test_importable_from_adapters():
-    from metacausal.adapters import CausalMLAdapter  # noqa: F401
+    from xcausal.adapters import CausalMLAdapter  # noqa: F401
