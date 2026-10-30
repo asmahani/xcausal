@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from metacausal import CausalEnsemble
-from metacausal.datasets import load_lalonde
+from xcausal import CausalEnsemble
+from xcausal.datasets import load_lalonde
 
 
 class TestLalondeContinuous:

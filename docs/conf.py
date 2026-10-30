@@ -1,4 +1,4 @@
-"""Sphinx configuration for MetaCausal's API reference.
+"""Sphinx configuration for XCausal's API reference.
 
 Built with autodoc + napoleon (existing docstrings are a mix of
 Google-style and NumPy-style; napoleon parses both) and autosummary
@@ -9,12 +9,12 @@ later, are authored in MyST Markdown via myst_parser.
 
 from __future__ import annotations
 
-import metacausal
+import xcausal
 
-project = "MetaCausal"
+project = "XCausal"
 copyright = "2026, Mansour T. A. Sharabiani, Alireza S. Mahani"
 author = "Mansour T. A. Sharabiani, Alireza S. Mahani"
-version = metacausal.__version__
+version = xcausal.__version__
 release = version
 
 extensions = [
@@ -29,7 +29,7 @@ extensions = [
     "matplotlib.sphinxext.plot_directive",
 ]
 
-# Embedded plot images (metacausal.plots.* docstrings): PNG only, no PDF/
+# Embedded plot images (xcausal.plots.* docstrings): PNG only, no PDF/
 # hi-res variant -- these are small illustrative figures, not publication
 # plates, so skip the extra build time and repo/artifact size.
 plot_formats = ["png"]
@@ -88,9 +88,9 @@ myst_enable_extensions = ["colon_fence"]
 myst_heading_anchors = 3
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "_generated", "Thumbs.db", ".DS_Store"]
 
 html_theme = "furo"
-html_title = "MetaCausal"
+html_title = "XCausal"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]

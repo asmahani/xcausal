@@ -7,10 +7,17 @@ import warnings
 import numpy as np
 import pytest
 from econml.dr import DRLearner
-from sklearn.ensemble import HistGradientBoostingClassifier
+from econml.metalearners import XLearner
+from sklearn.ensemble import (
+    HistGradientBoostingClassifier,
+    RandomForestRegressor,
+)
 from sklearn.exceptions import DataConversionWarning
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
-from metacausal.adapters.econml import EconMLAdapter
+from xcausal.adapters.econml import EconMLAdapter
 
 
 def _binary_dgp(n=300, seed=0):
@@ -342,7 +349,7 @@ class _JobsEstimator:
 
 
 class TestForceSerialUnderParallelism:
-    """Inside a MetaCausal worker (``INNER_WORKER_ENV`` set), the adapter pins
+    """Inside a XCausal worker (``INNER_WORKER_ENV`` set), the adapter pins
     the wrapped estimator's joblib ``n_jobs`` to 1 so a forest's inner pool
     cannot nest inside the outer worker (the segfault root cause). Outside a
     worker the estimator's own ``n_jobs`` is left untouched.
@@ -362,7 +369,7 @@ class TestForceSerialUnderParallelism:
         assert all(m.n_jobs == 1 for m in model.models)
 
     def test_fit_pins_n_jobs_inside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.setenv(INNER_WORKER_ENV, "1")
         adapter = EconMLAdapter(_JobsEstimator(n_jobs=-1))
@@ -376,7 +383,7 @@ class TestForceSerialUnderParallelism:
         assert adapter._model.n_jobs == -1
 
     def test_fit_leaves_n_jobs_outside_worker(self, monkeypatch):
-        from metacausal._parallel import INNER_WORKER_ENV
+        from xcausal._parallel import INNER_WORKER_ENV
 
         monkeypatch.delenv(INNER_WORKER_ENV, raising=False)
         adapter = EconMLAdapter(_JobsEstimator(n_jobs=-1))
@@ -385,6 +392,161 @@ class TestForceSerialUnderParallelism:
         assert adapter._fitted_model.n_jobs_at_fit == -1
         assert adapter._fitted_model.n_jobs == -1
 
+    def test_force_serial_reaches_tuples_and_pipeline_steps(self):
+        from types import SimpleNamespace
+
+        forest = RandomForestRegressor(n_estimators=2, n_jobs=-1)
+        model = SimpleNamespace(
+            n_jobs=-1,
+            model_y=SimpleNamespace(n_jobs=-1),
+            models=(SimpleNamespace(n_jobs=-1), SimpleNamespace(n_jobs=4)),
+            cate_models=Pipeline([
+                ("scale", StandardScaler()),
+                ("rf", forest),
+            ]),
+        )
+        EconMLAdapter._force_serial(model)
+        assert model.n_jobs == 1
+        assert model.model_y.n_jobs == 1
+        assert all(item.n_jobs == 1 for item in model.models)
+        assert model.cate_models.named_steps["rf"].n_jobs == 1
+        assert forest.n_jobs == 1
+
+    def test_seed_reaches_tuples_and_pipeline_steps(self):
+        from types import SimpleNamespace
+
+        left = RandomForestRegressor(n_estimators=2, n_jobs=-1)
+        right = RandomForestRegressor(n_estimators=2, n_jobs=-1)
+        nested = RandomForestRegressor(n_estimators=2, n_jobs=-1)
+        model = SimpleNamespace(
+            random_state=None,
+            cate_models=(
+                left,
+                Pipeline([("scale", StandardScaler()), ("rf", nested)]),
+            ),
+            models=[right],
+        )
+        EconMLAdapter._seed_model(model, 42)
+        assert isinstance(left.random_state, int)
+        assert isinstance(right.random_state, int)
+        assert isinstance(nested.random_state, int)
+        assert len({left.random_state, right.random_state, nested.random_state}) == 3
+
+
+def _effect_forest(n_jobs=-1):
+    return RandomForestRegressor(n_estimators=8, max_depth=3, n_jobs=n_jobs)
+
+
+def _cate_models(kind, n_jobs=-1):
+    if kind == "estimator":
+        return _effect_forest(n_jobs)
+    if kind == "list":
+        return [_effect_forest(n_jobs), _effect_forest(n_jobs)]
+    if kind == "tuple":
+        return (_effect_forest(n_jobs), _effect_forest(n_jobs))
+    if kind == "pipeline":
+        return Pipeline([
+            ("scale", StandardScaler()),
+            ("rf", _effect_forest(n_jobs)),
+        ])
+    raise AssertionError(kind)
+
+
+def _make_xlearner(kind, n_jobs=-1):
+    return XLearner(
+        models=LinearRegression(),
+        cate_models=_cate_models(kind, n_jobs),
+        propensity_model=HistGradientBoostingClassifier(max_iter=20),
+    )
+
+
+def _x_dgp(n=140, seed=0):
+    rng = np.random.default_rng(seed)
+    X = rng.normal(size=(n, 3))
+    T = rng.binomial(1, 0.5, size=n).astype(float)
+    Y = X[:, 0] + T * (0.5 + X[:, 1]) + rng.normal(scale=0.3, size=n)
+    return X, T, Y
+
+
+def _forests_in(spec):
+    """Random forests stored directly or as the last step of a pipeline."""
+    items = spec if isinstance(spec, (list, tuple)) else (spec,)
+    forests = []
+    for item in items:
+        if isinstance(item, Pipeline):
+            forests.append(item.named_steps["rf"])
+        else:
+            forests.append(item)
+    return forests
+
+
+def _fitted_effect_forests(fitted):
+    fitted_models = list(fitted.cate_controls_models) + list(fitted.cate_treated_models)
+    return _forests_in(fitted_models)
+
+
+class TestXLearnerCateModelControls:
+    """Explicit X-Learner ``cate_models`` take the adapter seed and the
+    inner-worker ``n_jobs`` limit, including a list, a tuple, and a
+    forest nested in a ``Pipeline``.
+    """
+
+    @pytest.mark.parametrize("kind", ["estimator", "list", "tuple", "pipeline"])
+    def test_repeated_fits_match(self, kind):
+        X, T, Y = _x_dgp()
+        # n_jobs=1 keeps the forest reduction bit-stable. Preservation of
+        # a user's n_jobs=-1 is covered by the outside-worker test.
+        first = EconMLAdapter(_make_xlearner(kind, n_jobs=1))
+        second = EconMLAdapter(_make_xlearner(kind, n_jobs=1))
+        first.fit(X, T, Y, random_state=42)
+        second.fit(X, T, Y, random_state=42)
+        np.testing.assert_array_equal(first.cate(X).cate, second.cate(X).cate)
+
+        forests = _fitted_effect_forests(first._fitted_model)
+        assert forests
+        assert all(isinstance(forest.random_state, int) for forest in forests)
+        assert all(forest.n_jobs == 1 for forest in forests)
+
+        if kind == "estimator":
+            other = EconMLAdapter(_make_xlearner(kind, n_jobs=1))
+            other.fit(X, T, Y, random_state=43)
+            assert not np.array_equal(first.cate(X).cate, other.cate(X).cate)
+
+    @pytest.mark.parametrize("kind", ["estimator", "list", "tuple", "pipeline"])
+    def test_preserves_n_jobs_outside_worker(self, kind, monkeypatch):
+        from xcausal._parallel import INNER_WORKER_ENV
+
+        monkeypatch.delenv(INNER_WORKER_ENV, raising=False)
+        X, T, Y = _x_dgp(seed=1)
+        template = _make_xlearner(kind)
+        adapter = EconMLAdapter(template)
+        adapter.fit(X, T, Y, random_state=7)
+
+        fitted = _fitted_effect_forests(adapter._fitted_model)
+        assert fitted
+        assert all(forest.n_jobs == -1 for forest in fitted)
+        assert all(isinstance(forest.random_state, int) for forest in fitted)
+        template_forests = _forests_in(template.cate_models)
+        assert all(forest.n_jobs == -1 for forest in template_forests)
+        assert all(forest.random_state is None for forest in template_forests)
+
+    @pytest.mark.parametrize("kind", ["estimator", "list", "tuple", "pipeline"])
+    def test_pins_n_jobs_inside_worker(self, kind, monkeypatch):
+        from xcausal._parallel import INNER_WORKER_ENV
+
+        monkeypatch.setenv(INNER_WORKER_ENV, "1")
+        X, T, Y = _x_dgp(seed=2)
+        template = _make_xlearner(kind)
+        adapter = EconMLAdapter(template)
+        adapter.fit(X, T, Y, random_state=7)
+
+        fitted = _fitted_effect_forests(adapter._fitted_model)
+        assert fitted
+        assert all(forest.n_jobs == 1 for forest in fitted)
+        template_forests = _forests_in(template.cate_models)
+        assert all(forest.n_jobs == -1 for forest in template_forests)
+        assert all(forest.random_state is None for forest in template_forests)
+
 
 def test_importable_from_top_level():
-    from metacausal import EconMLAdapter  # noqa: F401
+    from xcausal import EconMLAdapter  # noqa: F401

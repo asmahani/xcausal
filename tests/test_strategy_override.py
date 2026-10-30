@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation import (
+from xcausal import CausalEnsemble
+from xcausal.aggregation import (
     CBA,
     CrossFitSplit,
     Mean,
@@ -18,7 +18,7 @@ from metacausal.aggregation import (
     SupervisedStrategy,
     TrainAvgSplit,
 )
-from metacausal.aggregation.weights import EnsembleWeights
+from xcausal.aggregation.weights import EnsembleWeights
 
 # Reuse helpers from test_supervised_fit
 from tests.test_supervised_fit import (
@@ -26,7 +26,7 @@ from tests.test_supervised_fit import (
     UniformSupervisedStrategy,
     _dgp,
 )
-from metacausal.estimators import ComponentAteEstimate, ComponentCateEstimate
+from xcausal.estimators import ComponentAteEstimate, ComponentCateEstimate
 
 
 class VaryingCateAdapter:
