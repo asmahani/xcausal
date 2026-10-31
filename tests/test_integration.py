@@ -36,7 +36,7 @@ from sklearn.ensemble import (
 )
 from sklearn.linear_model import LogisticRegression
 
-from metacausal import CausalEnsemble
+from xcausal import CausalEnsemble
 
 # Every test in this file touches at least one real upstream library.
 pytestmark = pytest.mark.integration
@@ -73,7 +73,7 @@ class TestDoubleMLRoundTrip:
     def test_irm_continuous(self):
         from doubleml import DoubleMLIRM
 
-        from metacausal.adapters.doubleml import DoubleMLAdapter
+        from xcausal.adapters.doubleml import DoubleMLAdapter
 
         adapter = DoubleMLAdapter(
             DoubleMLIRM,
@@ -89,7 +89,7 @@ class TestDoubleMLRoundTrip:
     def test_irm_binary(self):
         from doubleml import DoubleMLIRM
 
-        from metacausal.adapters.doubleml import DoubleMLAdapter
+        from xcausal.adapters.doubleml import DoubleMLAdapter
 
         adapter = DoubleMLAdapter(
             DoubleMLIRM,
@@ -106,7 +106,7 @@ class TestDoubleMLRoundTrip:
     def test_plr_continuous(self):
         from doubleml import DoubleMLPLR
 
-        from metacausal.adapters.doubleml import DoubleMLAdapter
+        from xcausal.adapters.doubleml import DoubleMLAdapter
 
         adapter = DoubleMLAdapter(
             DoubleMLPLR,
@@ -226,7 +226,7 @@ class TestEconMLRoundTripBinary:
 
 class TestStochtreeRoundTrip:
     def test_bcf_continuous(self):
-        from metacausal.adapters.stochtree import StochtreeAdapter
+        from xcausal.adapters.stochtree import StochtreeAdapter
 
         adapter = StochtreeAdapter(
             propensity_model=LogisticRegression(max_iter=500),
@@ -251,7 +251,7 @@ class TestStochtreeRoundTrip:
 
 
 class TestEconMLContracts:
-    """EconMLAdapter (metacausal/adapters/econml.py)."""
+    """EconMLAdapter (xcausal/adapters/econml.py)."""
 
     def test_continuous_ate_returns_0d(self):
         """Continuous outcome: ``model.ate(X)`` is a 0-d ``np.float64``.
@@ -272,7 +272,7 @@ class TestEconMLContracts:
         assert np.asarray(ate).ndim == 0, (
             f"CausalForestDML.ate(X) is no longer 0-d for continuous Y; "
             f"shape is {np.asarray(ate).shape}. Review "
-            f"metacausal/adapters/econml.py::EconMLAdapter.ate."
+            f"xcausal/adapters/econml.py::EconMLAdapter.ate."
         )
 
     def test_discrete_outcome_ate_returns_1d(self):
@@ -295,7 +295,7 @@ class TestEconMLContracts:
         assert np.asarray(ate).shape == (1,), (
             f"CausalForestDML(discrete_outcome=True).ate(X) shape changed "
             f"from (1,) to {np.asarray(ate).shape}. Review "
-            f"metacausal/adapters/econml.py::EconMLAdapter.ate::_scalar."
+            f"xcausal/adapters/econml.py::EconMLAdapter.ate::_scalar."
         )
 
     def test_drlearner_has_discrete_outcome_param(self):
@@ -315,7 +315,7 @@ class TestEconMLContracts:
 
 
 class TestDoubleMLContracts:
-    """DoubleMLAdapter (metacausal/adapters/doubleml.py)."""
+    """DoubleMLAdapter (xcausal/adapters/doubleml.py)."""
 
     def test_data_auto_detects_binary_outcome(self):
         """``DoubleMLData`` auto-sets ``binary_outcome=True`` when Y values
@@ -358,7 +358,7 @@ class TestDoubleMLContracts:
 
 
 class TestCausalMLContracts:
-    """CausalMLAdapter (metacausal/adapters/causalml.py)."""
+    """CausalMLAdapter (xcausal/adapters/causalml.py)."""
 
     def test_module_namespace(self):
         """Meta-learner classes live under the ``causalml.inference.*``
@@ -384,7 +384,7 @@ class TestCausalMLContracts:
 
 
 class TestStochtreeContracts:
-    """StochtreeAdapter (metacausal/adapters/stochtree.py)."""
+    """StochtreeAdapter (xcausal/adapters/stochtree.py)."""
 
     def test_bcf_sample_signature(self):
         """``BCFModel.sample`` accepts ``X_train``, ``Z_train``, ``y_train``,
@@ -396,5 +396,5 @@ class TestStochtreeContracts:
         for kw in ("X_train", "Z_train", "y_train", "propensity_train"):
             assert kw in sig.parameters, (
                 f"BCFModel.sample no longer accepts {kw!r}. Review "
-                f"metacausal/adapters/stochtree.py::StochtreeAdapter.fit."
+                f"xcausal/adapters/stochtree.py::StochtreeAdapter.fit."
             )

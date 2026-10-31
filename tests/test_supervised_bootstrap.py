@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal import CausalEnsemble
-from metacausal.aggregation import CrossFitSplit, TrainAvgSplit
-from metacausal.aggregation.weights import BootstrapResult
+from xcausal import CausalEnsemble
+from xcausal.aggregation import CrossFitSplit, TrainAvgSplit
+from xcausal.aggregation.weights import BootstrapResult
 
 from tests.test_supervised_fit import (
     CateCapableAdapter,
@@ -219,7 +219,7 @@ class TestEstimateIntegration:
         assert isinstance(result, BootstrapResult)
 
     def test_estimate_returns_ate_estimate_when_n_boot_zero(self):
-        from metacausal.estimators import AteEstimate
+        from xcausal.estimators import AteEstimate
         X, T, Y = _dgp(n=200)
         ens = CausalEnsemble(
             methods=[CateCapableAdapter("a"), CateCapableAdapter("b")],

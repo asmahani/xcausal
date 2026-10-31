@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from metacausal.aggregation import CausalStacking, CrossFitSplit, QAggregation
-from metacausal.aggregation.base import SupervisedStrategy
-from metacausal.aggregation.nuisance import NuisanceEstimates, fit_nuisance
+from xcausal.aggregation import CausalStacking, CrossFitSplit, QAggregation
+from xcausal.aggregation.base import SupervisedStrategy
+from xcausal.aggregation.nuisance import NuisanceEstimates, fit_nuisance
 
 from tests.test_supervised_fit import CateCapableAdapter, _dgp, UniformSupervisedStrategy
 
@@ -62,7 +62,7 @@ class TestInjectableNuisance:
 
     def test_custom_fit_nuisance_fn_is_called(self):
         """Custom fit_nuisance_fn is called instead of the default."""
-        from metacausal import CausalEnsemble
+        from xcausal import CausalEnsemble
 
         call_log = []
 
@@ -95,7 +95,7 @@ class TestInjectableNuisance:
 
     def test_custom_nuisance_fn_can_return_constant_estimates(self):
         """Custom fn can return any valid NuisanceEstimates."""
-        from metacausal import CausalEnsemble
+        from xcausal import CausalEnsemble
 
         def constant_nuisance(X, T, Y, fold_spec,
                               propensity_model, outcome_model, propensity_trim, **kwargs):
@@ -123,7 +123,7 @@ class TestInjectableNuisance:
 
     def test_custom_nuisance_fn_affects_weights(self):
         """Different nuisance → different weights."""
-        from metacausal import CausalEnsemble
+        from xcausal import CausalEnsemble
 
         def nuisance_A(X, T, Y, fold_spec, propensity_model, outcome_model, propensity_trim, **kwargs):
             n = len(T)
@@ -174,7 +174,7 @@ class TestInjectablePseudoOutcome:
 
     def test_r_stacking_has_no_pseudo_outcome_fn(self):
         """RStacking uses Robinson residuals, not DR pseudo-outcomes."""
-        from metacausal.aggregation import RStacking
+        from xcausal.aggregation import RStacking
         s = RStacking()
         assert not hasattr(s, "pseudo_outcome_fn")
 
@@ -183,7 +183,7 @@ class TestInjectablePseudoOutcome:
 
         def tracking_po(Y, T, nuisance):
             call_log.append(len(Y))
-            from metacausal.aggregation.nuisance import dr_pseudo_outcome
+            from xcausal.aggregation.nuisance import dr_pseudo_outcome
             return dr_pseudo_outcome(Y, T, nuisance)
 
         w = _call_fit_weights(CausalStacking(pseudo_outcome_fn=tracking_po))
@@ -194,7 +194,7 @@ class TestInjectablePseudoOutcome:
 
         def tracking_po(Y, T, nuisance):
             call_log.append(len(Y))
-            from metacausal.aggregation.nuisance import dr_pseudo_outcome
+            from xcausal.aggregation.nuisance import dr_pseudo_outcome
             return dr_pseudo_outcome(Y, T, nuisance)
 
         w = _call_fit_weights(QAggregation(pseudo_outcome_fn=tracking_po))

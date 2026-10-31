@@ -1,0 +1,7 @@
+# Baseline used to resolve inherited defaults in the component reference.
+# These constrain documentation builds only; package support stays in pyproject.toml.
+econml==0.17.0
+causalml==0.18.0
+doubleml==0.11.4
+stochtree==0.4.5
+scikit-learn==1.9.1

@@ -1,10 +1,48 @@
 # Changelog
 
-All notable changes to MetaCausal are documented here. Dates are
+All notable changes to XCausal are documented here. Dates are
 release dates; "Unreleased" entries describe changes on `main` not yet
 tagged.
 
 ## Unreleased
+
+## 0.9.0 — 2026-10-28
+
+- **Seed and limit workers inside explicit X-Learner effect models.** `EconMLAdapter` now includes `cate_models` when it propagates `random_state` and, inside an XCausal worker, pins `n_jobs` to 1. The slot may be one estimator, a list, or a tuple. A scikit-learn `Pipeline` is walked through to the step that owns those settings, so a nested random forest is seeded and limited to one job with the rest of the component. Outside a worker the user's `n_jobs` is left unchanged. Default X-Learners keep `cate_models=None`; their seeded predictions are unchanged.
+- **Require CausalML 0.18.0 and drop the R-learner `model_p` workaround.** The `causalml` and `all` extras are now `causalml>=0.18.0,<0.18.1`. CausalML 0.18.0 assigns `model_p` from `propensity_learner` before fitting ([uber/causalml#937](https://github.com/uber/causalml/pull/937)), so the propensity model that is trained is the one configured on `BaseRRegressor` or `BaseRClassifier`, including a replacement on a component returned by `default_methods()`. The extra `model_p` estimator set at construction was only needed for the 0.16 and 0.17 initialization order, where that separate instance was what `fit()` actually trained.
+
+  On CausalML 0.18.0, removing the extra instance does not change seeded default R-learner predictions: `fit()` was already training `propensity_learner`. On CausalML 0.17 the workaround's separate `model_p` was the propensity model that `fit()` trained, and it received a different adapter seed than `propensity_learner`. Holding every other seed fixed, that swap moves Lalonde CATE by up to about 4770. Those 0.17 fits are not interchangeable with 0.18 fits.
+
+- **Corrected subsample confidence intervals with the finite-population scale.**
+  `method="subsample"` now uses `sqrt(m/(n-m))`, with the actual integer
+  subsample size `m` and training size `n`, for ensemble ATE/CATE intervals
+  and reconstructed component intervals, summaries, and forest plots.
+  The default fraction remains 0.5; at exact half-sampling interval widths
+  increase by `sqrt(2)`. Nonparametric bootstrap intervals, point estimates,
+  fitted weights, seeds, resampling, and raw replicate arrays are unchanged.
+  The correction is motivated by regular asymptotic linearity; it does not
+  establish general CATE coverage or validity for nonregular aggregation
+  or every inferential target under treatment stratification.
+
+  Subsample interval reconstruction now requires integer `subsample_m` and
+  `n_train` metadata satisfying `1 <= subsample_m < n_train`, rather than
+  silently falling back to scale 1 for missing metadata. Nonparametric
+  results still need no size metadata.
+
+  **Saved results:** older pickled `BootstrapResult` objects retain their
+  stored ATE/CATE endpoints, while `ci_at()`, component summaries, and
+  component forest-plot intervals use the installed code. Recompute stored
+  endpoints consistently before using these objects with the new code.
+  With valid size metadata, an old stored endpoint can be transformed as
+  `theta + sqrt(n/(n-m)) * (endpoint - theta)`, using the corresponding
+  original-fit ATE or CATE as `theta`. No model refits are needed solely
+  for this correction; retain provenance for the original results.
+- **Clarified the `ate()` docstring.** Agreement and supervised strategies return the mean of fitted ensemble CATE predictions over the evaluation covariates; AIPW pseudo-outcomes, when used, serve as training targets for supervised weights. Pointwise strategies aggregate component ATE estimates directly. This is a documentation-only change with no change to returned estimates.
+- **Warn when binary ensemble point estimates leave [-1, 1].** The new public `RiskDifferenceWarning`, a direct subclass of `XCausalWarning`, applies to every aggregation strategy. `cate()` reports the count of out-of-range entries; `ate()` checks the ensemble ATE and, for agreement/supervised strategies, the ensemble CATE used to compute it. `bootstrap()` checks the original-fit ATE and CATE at most once each, without warnings for individual replicates or CI endpoints. Warnings point to the caller. Point estimates, fitted weights, bootstrap distributions, and confidence intervals remain unchanged; no clipping or constraints are added. Existing warning-as-error filters on `XCausalWarning` also catch this new category.
+
+## 0.8.0 — 2026-10-21
+
+- **Renamed the project to XCausal.** The PyPI distribution and import package are now `xcausal`. `MetaCausalWarning` is now `XCausalWarning`, and the parallelism sentinel is `XCAUSAL_INNER_WORKER` (`xcausal.adapters.INNER_WORKER_ENV`). This is the first `xcausal` release; it continues the code previously published as `metacausal` 0.7.4. Entries below keep the wording from those releases.
 
 ## 0.7.4 — 2026-10-17
 
@@ -15,19 +53,19 @@ tagged.
 - **README bootstrap recipes now use `n_boot=10`, not `200`/`500`.** A code comment at each call site states the recommended `200`+ (`500`+ for the last recipe) for real use. This keeps the examples fast to actually run, and — paired with the new CI gate below — lets every README recipe execute in about a minute instead of the 10+ minutes the documented values would take across the full multi-framework default pool.
 - **Added a mechanical README example gate to CI.** A new `docs` job step (`phmdoctest`) extracts every fenced Python block from `README.md` and executes it, unmodified, on every push — closing the same class of gap the docstring doctest gate (0.7.0) closed for docstrings: a plain code block, however carefully checked by hand once, can silently drift as the package evolves without something actually running it.
 - **Fixed two more non-executable README snippets, found while building that gate.** The `CausalForestDML`-workaround recipe (under the "Known issue" callout) and the closing "Reproducibility and parallelism" recipe were each missing an import (`CausalEnsemble`; `CausalEnsemble` and `CausalStacking` respectively) that a reader copy-pasting just that snippet would have hit as a `NameError` — the same bug class as the two README fixes in 0.7.0 and 0.7.2, just not yet mechanically caught until this release's gate existed.
-- **Removed a stray reference to "the bundled replication runner"** from the "Reproducibility and parallelism" section — an artifact of this repository's split from the manuscript/replication-material repository; no such runner is bundled here.
+- **Removed a stray reference to "the bundled replication runner"** from the "Reproducibility and parallelism" section. No such runner is bundled here.
 
 ## 0.7.2 — 2026-07-20
 
 - **Fixed a data-contamination bug in the README's "CATE estimation with a supervised strategy" recipe.** It relied on `X, T, Y` without redefining them, per the "Usage recipes" convention — but the preceding "Binary outcome on real data" recipe rebinds `X, T, Y` to a binary outcome, so running the recipes in order silently fit `CausalStacking` against binary data instead of the continuous Lalonde outcome the recipe's own comments describe. It now reloads `X, T, Y = load_lalonde()` explicitly.
-- **Documented a known `CausalForestDML` segfault risk under bootstrap.** EconML's generalized-random-forest tree builder can intermittently crash (SIGSEGV/SIGBUS) under the repeated component refits `bootstrap()`/`estimate(..., n_boot=...)` perform on the default pool — the same latent upstream bug ([py-why/EconML#470](https://github.com/py-why/EconML/issues/470), open, unfixed as of EconML 0.16.0) already worked around in the manuscript's replication material. Added a "Known issue" callout to README's "Reproducibility and parallelism" section with a copy-pasteable `default_methods()`-filtering workaround.
+- **Documented a known `CausalForestDML` segfault risk under bootstrap.** EconML's generalized-random-forest tree builder can intermittently crash (SIGSEGV/SIGBUS) under the repeated component refits `bootstrap()`/`estimate(..., n_boot=...)` perform on the default pool — the same latent upstream bug ([py-why/EconML#470](https://github.com/py-why/EconML/issues/470), open, unfixed as of EconML 0.16.0). Added a "Known issue" callout to README's "Reproducibility and parallelism" section with a copy-pasteable `default_methods()`-filtering workaround.
 - **`summary()` methods now display correctly when typed bare at a REPL/notebook prompt.** `AteEstimate.summary()`, `CateEstimate.summary()`, `CausalEnsemble.summary()`, and `BootstrapResult.summary()` build multi-line, human-formatted text, but as plain `str` returns, bare-expression evaluation (which uses `repr()`, not `str()`) showed embedded newlines as literal `\n` rather than rendering them -- forcing `print(...)` to be remembered every time. They now return `SummaryStr`, a `str` subclass overriding only `__repr__` to match `__str__`; every other `str` behavior (`isinstance`, equality, concatenation, formatting, etc.) is unchanged.
 - **Added `BootstrapResult.ci_at()`**, a confidence interval at an arbitrary level from an already-computed bootstrap run, without re-fitting. Previously, `bootstrap()` only returned a CI at the single `alpha` it was called with, for the ensemble's own aggregated ATE; getting a CI for another level, for a specific component (`component_boot_ates`), or for a derived statistic (e.g. a per-replicate mean across components) required hand-rolling the same Politis-Romano scaled-percentile formula against the raw distributions. `ci_at()` exposes that formula directly, and defaults to reproducing the ensemble's own CI. `bootstrap()`'s internal CI construction now calls the same shared implementation, so there's a single source of truth for the formula.
 - **Fixed `BootstrapResult.component_ate_summary()` (and thus `summary()`'s printed per-component rows) ignoring the `method="subsample"` scale correction.** It computed per-component CIs with plain percentiles regardless of resampling scheme, while the ensemble-level `ate_ci_lower`/`ate_ci_upper` already correctly applied the Politis–Romano `sqrt(m/n)` scale/center correction for `method="subsample"` — an inconsistency between the two, not a difference in scheme handling. Component CIs now also center on the component's own full-sample fit estimate (`component_ate_estimates`) rather than the bootstrap mean, matching the class's documented point-estimate convention (falls back to the bootstrap mean when unavailable, e.g. on a hand-built `BootstrapResult`). Under `method="nonparametric"` (the default), this recentering is a no-op — the scale factor is 1.0, so the formula reduces algebraically to the previous plain-percentile result; only `method="subsample"` users are affected. Also added `BootstrapResult.n_train` and `.scale`, needed to reconstruct the correction after the fact.
 
 ## 0.7.1 — 2026-07-18
 
-- **Fixed the default R-Learner pool components silently ignoring their HGB propensity model.** CausalML's `BaseRLearner.fit()` assigns `self.model_p = self.propensity_learner` *after* calling `_set_propensity_models()`, which reads `self.model_p` (not `propensity_learner`) to decide whether to use a custom propensity model. On a fresh `BaseRRegressor`/`BaseRClassifier` instance, `model_p` doesn't exist yet at that point, so every first `fit()` silently fell back to CausalML's own `ElasticNetPropensityModel()` default instead of the `HistGradientBoostingClassifier` the default pools intended — and that default's `saga`+`elasticnet` grid search routinely fails to converge on Lalonde-sized data, flooding `ConvergenceWarning`s (particularly noticeable in interactive use, e.g. `python -i` against the manuscript examples). The shipped default pools now set `model_p` directly at construction, alongside the existing `cv_n_jobs=1` workaround. This is a known upstream bug (fixed on CausalML's `master` via [uber/causalml#937](https://github.com/uber/causalml/pull/937), not yet in a PyPI release as of `causalml==0.17.0`); the workaround is harmless once CausalML ships the fix.
+- **Fixed the default R-Learner pool components silently ignoring their HGB propensity model.** CausalML's `BaseRLearner.fit()` assigns `self.model_p = self.propensity_learner` *after* calling `_set_propensity_models()`, which reads `self.model_p` (not `propensity_learner`) to decide whether to use a custom propensity model. On a fresh `BaseRRegressor`/`BaseRClassifier` instance, `model_p` doesn't exist yet at that point, so every first `fit()` silently fell back to CausalML's own `ElasticNetPropensityModel()` default instead of the `HistGradientBoostingClassifier` the default pools intended — and that default's `saga`+`elasticnet` grid search routinely fails to converge on Lalonde-sized data, flooding `ConvergenceWarning`s in interactive use. The shipped default pools now set `model_p` directly at construction, alongside the existing `cv_n_jobs=1` workaround. This is a known upstream bug (fixed on CausalML's `master` via [uber/causalml#937](https://github.com/uber/causalml/pull/937), not yet in a PyPI release as of `causalml==0.17.0`); the workaround is harmless once CausalML ships the fix.
 - **Widened the `causalml`, `stochtree`, and `doubleml` caps** to admit each library's current latest patch/minor (`causalml<0.17.1`, `stochtree<0.4.6`, `doubleml<0.11.4`), validating CI (including `pytest -m integration`) against `causalml==0.17.0`, `stochtree==0.4.5`, and `doubleml==0.11.3`. Floors are unchanged; per the versioning policy in `pyproject.toml`, only the cap moves until the floor itself is deliberately re-validated and bumped.
 
 ## 0.7.0 — 2026-07-17

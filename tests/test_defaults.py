@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from metacausal import CausalEnsemble
-from metacausal.datasets import load_lalonde
-from metacausal.defaults import default_methods, default_outcome_model
+from xcausal import CausalEnsemble
+from xcausal.datasets import load_lalonde
+from xcausal.defaults import default_methods, default_outcome_model
 
 
 def test_default_library_has_nine_components_spanning_four_frameworks():
@@ -94,7 +94,7 @@ class TestDefaultMethodsOutcomeType:
 class TestRLearnerSerialCrossFit:
     """CausalML's BaseRLearner family defaults ``cv_n_jobs=-1`` (unlike
     EconML's ``n_jobs``, this knob is on by default), which would otherwise
-    nest a joblib pool inside MetaCausal's own outer parallelism on every
+    nest a joblib pool inside XCausal's own outer parallelism on every
     fit (issue #47). The shipped default pools pin it to 1 explicitly.
     """
 
@@ -113,47 +113,103 @@ class TestRLearnerSerialCrossFit:
             default_methods("survival")
 
 
+def _synthetic_outcome(outcome_type, n=220, seed=0):
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    X = rng.normal(size=(n, 3))
+    T = rng.binomial(1, 1.0 / (1.0 + np.exp(-0.4 * X[:, 0]))).astype(int)
+    if outcome_type == "binary":
+        p = 1.0 / (1.0 + np.exp(-(X[:, 0] + 0.8 * T)))
+        Y = rng.binomial(1, p).astype(float)
+    else:
+        Y = X[:, 0] + 0.7 * T + rng.normal(scale=0.2, size=n)
+    return X, T, Y
+
+
+def _fit_r_learner(learner, X, T, Y, random_state=0):
+    """Fit a default-pool or user-supplied R-learner through the adapter."""
+    from xcausal.adapters.causalml import CausalMLAdapter
+
+    adapter = CausalMLAdapter(learner)
+    adapter.fit(X, T, Y, random_state=random_state)
+    return adapter._fitted_model
+
+
 class TestRLearnerPropensityOverride:
-    """CausalML's BaseRLearner ignores a user-supplied ``propensity_learner``
-    on a fresh instance's first ``fit()`` (uber/causalml#937, fixed on their
-    master but not yet released): ``_set_propensity_models()`` reads
-    ``self.model_p`` before it is ever assigned from ``propensity_learner``,
-    so it silently falls back to CausalML's own ``ElasticNetPropensityModel``
-    default. The shipped default pools work around this by setting
-    ``model_p`` directly.
+    """CausalML >= 0.18 fits ``propensity_learner`` (uber/causalml#937).
+
+    ``fit()`` assigns ``model_p`` from ``propensity_learner`` before
+    training it. The default pools therefore do not keep a second
+    propensity instance on ``model_p``: that instance was what CausalML
+    0.16/0.17 actually trained, so a later change to ``propensity_learner``
+    was ignored.
     """
 
-    def test_continuous_pool_r_learner_model_p_is_hgb(self):
+    def test_default_pools_do_not_preset_model_p(self):
         from sklearn.ensemble import HistGradientBoostingClassifier
 
-        methods = default_methods()
-        r_learner = next(m for m in methods if type(m).__name__ == "BaseRRegressor")
-        assert isinstance(r_learner.model_p, HistGradientBoostingClassifier)
+        r_learner = next(
+            m for m in default_methods() if type(m).__name__ == "BaseRRegressor"
+        )
+        r_classifier = next(
+            m for m in default_methods("binary") if type(m).__name__ == "BaseRClassifier"
+        )
+        assert not hasattr(r_learner, "model_p")
+        assert not hasattr(r_classifier, "model_p")
+        assert isinstance(r_learner.propensity_learner, HistGradientBoostingClassifier)
+        assert isinstance(r_classifier.propensity_learner, HistGradientBoostingClassifier)
 
-    def test_binary_pool_r_classifier_model_p_is_hgb(self):
-        from sklearn.ensemble import HistGradientBoostingClassifier
-
-        methods = default_methods("binary")
-        r_classifier = next(m for m in methods if type(m).__name__ == "BaseRClassifier")
-        assert isinstance(r_classifier.model_p, HistGradientBoostingClassifier)
-
-    def test_continuous_pool_r_learner_uses_hgb_propensity_on_first_fit(self):
-        """Regression test for the fit-order bug: without the model_p
-        workaround, a fresh BaseRRegressor's first fit silently uses
-        CausalML's ElasticNetPropensityModel instead of our HGB override."""
+    def test_default_regressor_fits_its_propensity_learner(self):
         from sklearn.ensemble import HistGradientBoostingClassifier
 
         X, T, Y = load_lalonde()
-        methods = default_methods()
-        r_learner = next(m for m in methods if type(m).__name__ == "BaseRRegressor")
-        r_learner.fit(X, T, Y, verbose=False)
+        r_learner = next(
+            m for m in default_methods() if type(m).__name__ == "BaseRRegressor"
+        )
+        fitted = _fit_r_learner(r_learner, X, T, Y, random_state=42)
 
-        for group, model in r_learner.propensity_model.items():
-            assert isinstance(model, HistGradientBoostingClassifier), (
-                f"group {group}: expected HGB propensity model, got "
-                f"{type(model).__name__} -- the model_p ordering workaround "
-                f"may have regressed"
+        assert isinstance(fitted.propensity_learner, HistGradientBoostingClassifier)
+        assert fitted.propensity_model
+        for group, model in fitted.propensity_model.items():
+            assert model is fitted.propensity_learner, (
+                f"group {group}: fitted {type(model).__name__}, "
+                f"not the configured propensity_learner"
             )
+
+    def test_default_classifier_fits_its_propensity_learner(self):
+        from sklearn.ensemble import HistGradientBoostingClassifier
+
+        X, T, Y = _synthetic_outcome("binary")
+        r_classifier = next(
+            m for m in default_methods("binary") if type(m).__name__ == "BaseRClassifier"
+        )
+        fitted = _fit_r_learner(r_classifier, X, T, Y, random_state=42)
+
+        assert isinstance(fitted.propensity_learner, HistGradientBoostingClassifier)
+        assert fitted.propensity_model
+        for model in fitted.propensity_model.values():
+            assert model is fitted.propensity_learner
+
+    def test_replacing_default_propensity_learner_is_honored(self):
+        from sklearn.linear_model import LogisticRegression
+
+        for outcome_type, class_name in (
+            ("continuous", "BaseRRegressor"),
+            ("binary", "BaseRClassifier"),
+        ):
+            X, T, Y = _synthetic_outcome(outcome_type, seed=1)
+            learner = next(
+                m for m in default_methods(outcome_type)
+                if type(m).__name__ == class_name
+            )
+            learner.propensity_learner = LogisticRegression(max_iter=400)
+            fitted = _fit_r_learner(learner, X, T, Y, random_state=1)
+
+            assert isinstance(fitted.propensity_learner, LogisticRegression)
+            assert fitted.model_p is fitted.propensity_learner
+            for model in fitted.propensity_model.values():
+                assert model is fitted.propensity_learner
 
 
 @pytest.mark.slow
